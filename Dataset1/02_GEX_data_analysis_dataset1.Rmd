@@ -1,0 +1,577 @@
+---
+title: "Higher resolution clustering for the first dataset, cluster resolution 1"
+author:
+  - "trnguyen@ukaachen.de"
+date: "Last update on `r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    keep_md: no
+    df_print: paged
+    toc: true
+    toc_float:
+      toc_collapsed: false
+    toc_depth: 3
+    number_sections: false
+    theme: lumen
+---
+
+
+
+```{css zoom-lib-src, echo = FALSE}
+script src = "https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"
+```
+
+```{js zoom-jquery, echo = FALSE}
+ $(document).ready(function() {
+    $('body').prepend('<div class=\"zoomDiv\"><img src=\"\" class=\"zoomImg\"></div>');
+    // onClick function for all plots (img's)
+    $('img:not(.zoomImg)').click(function() {
+      $('.zoomImg').attr('src', $(this).attr('src')).css({width: '100%'});
+      $('.zoomDiv').css({opacity: '1', width: 'auto', border: '1px solid white', borderRadius: '5px', position: 'fixed', top: '50%', left: '50%', marginRight: '-50%', transform: 'translate(-50%, -50%)', boxShadow: '0px 0px 50px #888888', zIndex: '50', overflow: 'auto', maxHeight: '100%'});
+    });
+    // onClick function for zoomImg
+    $('img.zoomImg').click(function() {
+      $('.zoomDiv').css({opacity: '0', width: '0%'}); 
+    });
+  });
+```
+
+<style type="text/css">
+    div.datatables { height: auto !important;}
+</style>
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='hide'}
+#####----------------------------------------------------------------------#####
+#
+# 06: Increase higher resolution for the clustering of the first dataset
+#
+# trnguyen@ukaachen.de
+#####----------------------------------------------------------------------#####
+
+##### clean up #####
+# gc()
+# rm(list = ls())
+
+path.to.pipeline.src <- "/home/hieunguyen/CRC1382/src_2023/src_pipeline"
+source(file.path(path.to.pipeline.src, "scRNA_GEX_pipeline", "processes_src", "import_libraries.R"))
+source(file.path(path.to.pipeline.src, "scRNA_GEX_pipeline", "processes_src", "helper_functions.R"))
+
+path.to.project.src <- "/home/hieunguyen/CRC1382/src_2023/LKopplin/LKopplin_scRNAseq_VDJ_analysis/Dataset1"
+source(file.path(path.to.project.src, "helper_functions.R"))
+
+#####----------------------------------------------------------------------#####
+# CONFIGURATIONS 
+#####----------------------------------------------------------------------#####
+
+chosen.seed <- 42
+num.dim.integration <- 25 
+num.PCA <- 25
+num.dim.cluster <- 25
+num.PC.used.in.Clustering <- 25
+
+source(file.path(path.to.pipeline.src, "scRNA_GEX_pipeline", "processes_src", "s8_integration_and_clustering.R"))
+
+PROJECT <- "1stExp_Kopplin"
+outdir <- "/media/hieunguyen/HD0/outdir/CRC1382/LKopplin_OFFICIAL"
+# outdir <- "/media/hieunguyen/HNSD_MBPro/CRC1382/outdir/LKopplin_OFFICIAL"
+
+path.to.main.output <- file.path(outdir, PROJECT, "data_analysis")
+path.to.01.output <- file.path(path.to.main.output, "01_output")
+path.to.02.output <- file.path(path.to.main.output, "02_output")
+dir.create(path.to.02.output, showWarnings = FALSE, recursive = TRUE)
+
+s.obj <- readRDS(file.path(path.to.01.output , "merged_all_first_exp_dataset.rds"))
+
+dir.create(file.path(path.to.02.output, "GFP", "clones_shared_in_2_samples"), showWarnings = FALSE, recursive = TRUE)
+dir.create(file.path(path.to.02.output, "CD45", "clones_shared_in_2_samples"), showWarnings = FALSE, recursive = TRUE)
+dir.create(file.path(path.to.02.output, "GFP", "clones_unique_in_1_sample"), showWarnings = FALSE, recursive = TRUE)
+dir.create(file.path(path.to.02.output, "CD45", "clones_unique_in_1_sample"), showWarnings = FALSE, recursive = TRUE)
+
+if ("svglite" %in% installed.packages() == FALSE){
+  install.packages("svglite")
+}
+```
+
+# Dimensional reduction
+Clusters found from the previous resolution of 0.5
+## UMAP, group by current clusters
+```{r UMAP_all_samples_groupby_cluster, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dpi = 300, dev = 'svg'}
+DimPlot(object = s.obj, reduction = "RNA_UMAP", label = TRUE, label.box = TRUE, repel = TRUE, pt.size = 0.5) + 
+    xlim(-8, 7) + ylim(-4, 5)
+```
+
+## UMAP, group by samples
+```{r UMAP_all_samples_groupby_samples, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dpi = 300, dev = 'svg'}
+DimPlot(object = s.obj, group.by = "name", reduction = "RNA_UMAP", label = TRUE, label.box = TRUE, repel = TRUE, pt.size = 0.5) + 
+    xlim(-8, 7) + ylim(-4, 5)
+```
+
+## Higher resolution clustering
+
+```{r UMAP_all_samples_groupby_new_cluster, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dpi = 300, dev='svg'}
+cluster.resolution <- 1
+if (file.exists(file.path(path.to.02.output, sprintf("sobj_with_clusterRes_%s.rds", cluster.resolution))) == FALSE){
+  print(sprintf("CLUSTER RESOLUTIONS: %s", cluster.resolution))
+  chosen.assay <- "RNA"
+  
+  s.obj <- FindNeighbors(s.obj, reduction = sprintf("%s_PCA", chosen.assay), dims = 1:num.PC.used.in.Clustering)
+    
+  s.obj <- FindClusters(s.obj, resolution = cluster.resolution, random.seed = chosen.seed)
+    
+  DimPlot(object = s.obj, reduction = "RNA_UMAP", label = TRUE, label.box = TRUE, repel = TRUE, pt.size = 0.5, label.size = 8) + 
+    xlim(-8, 7) + ylim(-4, 5)
+  saveRDS(object = s.obj, file = file.path(path.to.02.output, sprintf("sobj_with_clusterRes_%s.rds", cluster.resolution)))  
+} else {
+  s.obj <- readRDS(file.path(path.to.02.output, sprintf("sobj_with_clusterRes_%s.rds", cluster.resolution)))
+}
+```
+
+# Cluster markers
+Applying the `wilcox` test on all genes to find the highly expressed genes in each cluster. 
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=20, fig.height=12}
+if (file.exists(file.path(path.to.02.output, sprintf("cluster_markers%s.rds", cluster.resolution))) == FALSE){
+  cluster.markers <- FindAllMarkers(object = s.obj, assay = "RNA", test.use = "wilcox")
+  cluster.markers <- subset(cluster.markers, cluster.markers$p_val_adj <= 0.05 & cluster.markers$avg_log2FC >= 0)
+  saveRDS(cluster.markers, file.path(path.to.02.output, sprintf("cluster_markers%s.rds", cluster.resolution))  )
+} else {
+  cluster.markers <- readRDS(file.path(path.to.02.output, sprintf("cluster_markers%s.rds", cluster.resolution)))
+}
+
+```
+
+### Tables of all cluster marker genes {.tabset}
+```{r echo=FALSE, include=FALSE}
+cluster.markers %>% create_dt()
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=30, fig.height=20}
+
+for (cluster.id in sort(unique(cluster.markers$cluster))){
+  tmp.cluster.markers <- subset(cluster.markers, cluster.markers$cluster == cluster.id) %>% arrange(desc(avg_log2FC))
+  tmp.cluster.markers <- tmp.cluster.markers %>% mutate_if(is.numeric, round, 6) 
+  
+  cat(paste("\n\n#### Cluster: ", cluster.id, "##\n"))
+  print( htmltools::tagList(datatable(tmp.cluster.markers, extensions = 'Buttons',
+                                      filter = "top",
+                                      options = list(dom = 'Blfrtip',
+                                                     buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+                                                     lengthMenu = list(c(10,25,50,-1),
+                                                                       c(10,25,50,"All")),
+                                                     columnDefs = list(list(
+                                                       targets = "_all",
+                                                       render = JS(
+                                                         "function(data, type, row, meta) {",
+                                                         "return type === 'display' && data != null && data.length > 100 ?",
+                                                         "'<span title=\"' + data + '\">' + data.substr(0, 100) + '...</span>' : data;",
+                                                         "}")
+                                                     ))
+                                      ))))
+  cat("\n \n")
+}
+
+```
+
+
+### Top-12 cluster marker genes `FeaturePlot` {.tabset}
+Here we just show the top-12 genes (ranked by `avg_log2FC`) for each cluster. 
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=20, fig.height=15}
+for (cluster.id in sort(unique(s.obj@meta.data$seurat_clusters))){
+  DefaultAssay(s.obj) <- "RNA"
+  cat(sprintf("#### Cluster %s \n", cluster.id))
+  tmp.cluster.markers <- subset(cluster.markers, cluster.markers$cluster == cluster.id) %>% arrange(desc(avg_log2FC))
+  p <- FeaturePlot(object = s.obj, reduction = "RNA_UMAP", features = head(tmp.cluster.markers, 12)$gene, ncol = 3, label = TRUE, pt.size = 0.5, label.size = 5, label.color = "red")  
+  print(p)
+  cat("\n \n")
+}
+```
+
+### Top-12 cluster marker genes `DotPlot` {.tabset}
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=20, fig.height=15}
+for (cluster.id in sort(unique(s.obj@meta.data$seurat_clusters))){
+  DefaultAssay(s.obj) <- "RNA"
+  cat(sprintf("#### Cluster %s \n", cluster.id))
+  tmp.cluster.markers <- subset(cluster.markers, cluster.markers$cluster == cluster.id) %>% arrange(desc(avg_log2FC))
+  p <- DotPlot(object = s.obj, features = head(tmp.cluster.markers, 9)$gene)  
+  print(p)
+  cat("\n \n")
+}
+```
+
+### Top-12 cluster marker genes `Vlnplot` {.tabset}
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=20, fig.height=15}
+for (cluster.id in sort(unique(s.obj@meta.data$seurat_clusters))){
+  DefaultAssay(s.obj) <- "RNA"
+  cat(sprintf("#### Cluster %s \n", cluster.id))
+  tmp.cluster.markers <- subset(cluster.markers, cluster.markers$cluster == cluster.id) %>% arrange(desc(avg_log2FC))
+  p <- VlnPlot(object = s.obj, features = head(tmp.cluster.markers, 9)$gene)  
+  print(p)
+  cat("\n \n")
+}
+```
+
+
+
+# Heatmap: Cluster markers
+```{r echo=FALSE, warning=FALSE, message=FALSE, fig.width=30, fig.height=18, dpi = 300}
+library(viridis)
+
+list.of.top10.cluster.markers <- data.frame()
+for (cluster.id in unique(cluster.markers$cluster)){
+  tmp <- subset(cluster.markers, (cluster.markers$cluster == cluster.id) & (cluster.markers$p_val_adj <= 0.05) & (cluster.markers$avg_log2FC > 0)) %>% arrange(desc(avg_log2FC)) %>% head(10)
+  list.of.top10.cluster.markers <- rbind(list.of.top10.cluster.markers, tmp)
+}
+
+gex_cluster_markers_heatmap <- DoHeatmap(object = s.obj, features = list.of.top10.cluster.markers$gene, label = TRUE, draw.lines = T, assay = "RNA") + scale_fill_viridis(direction = -1)
+
+library(svglite)
+ggsave(plot = gex_cluster_markers_heatmap, filename = file.path(path.to.02.output, sprintf("heatmap_all_top10_cluster_marker_genes_clusterRes_%s.svg", cluster.resolution)),
+       width = 30, height = 18, dpi = 400, device = 'png')
+
+print(gex_cluster_markers_heatmap)
+```
+
+
+
+# Clones on UMAP
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='hide'}
+#####----------------------------------------------------------------------#####
+# PROCESSING CLONES FROM THE FIRST DATASET
+#####----------------------------------------------------------------------#####
+# >>>>> CD45 <<<<<
+count.clonaltype.1st <- hash()
+
+for (sample.id in unique(s.obj$name)){
+  tmpdf <- table(subset(s.obj, name == sample.id)$CTaa) %>% as.data.frame() 
+  colnames(tmpdf) <- c("CTaa", "count")
+  count.clonaltype.1st[[sample.id]] <- tmpdf
+}
+
+summary.count.clonaltype.1st.CD45 <- merge(count.clonaltype.1st$CD45exp1_m1, count.clonaltype.1st$CD45exp1_m2, 
+              by.x = "CTaa", by.y = "CTaa", 
+              all.x = TRUE, all.y = TRUE) %>% arrange(desc(count.x))
+
+colnames(summary.count.clonaltype.1st.CD45) <- c("CTaa", "CD45exp1_m1", "CD45exp1_m2")
+
+summary.count.clonaltype.1st.CD45[is.na(summary.count.clonaltype.1st.CD45)] <- 0
+
+summary.clonaltype.1st <- data.frame(unique(c(count.clonaltype.1st$CD45exp1_m1$CTaa, 
+                                              count.clonaltype.1st$CD45exp1_m2$CTaa)))
+
+colnames(summary.clonaltype.1st) <- c("CTaa")
+
+summary.clonaltype.1st <- summary.clonaltype.1st %>% rowwise %>% 
+  mutate(Status = assign_status_for_clonaltype_1st(clone = CTaa, 
+                                                   mode = "CD45",
+                                                   count.clonaltype = count.clonaltype.1st, 
+                                                   summary.count.clonaltype = summary.count.clonaltype.1st.CD45))
+
+final.summary.clonaltype.1st.CD45 <- merge(summary.clonaltype.1st, summary.count.clonaltype.1st.CD45, by.x = "CTaa", by.y = "CTaa")
+final.summary.clonaltype.1st.CD45.raw <- final.summary.clonaltype.1st.CD45
+final.summary.clonaltype.1st.CD45 <- subset(final.summary.clonaltype.1st.CD45, final.summary.clonaltype.1st.CD45$Status != "excluded")
+
+final.summary.clonaltype.1st.CD45 <- final.summary.clonaltype.1st.CD45 %>% rowwise %>%
+  mutate(total = CD45exp1_m1 + CD45exp1_m2) 
+
+# >>>>> GFP <<<<<
+# count the appearance of all clonal types in all samples
+summary.count.clonaltype.1st.GFP <- merge(count.clonaltype.1st$GFPexp1_m1, count.clonaltype.1st$GFPexp1_m2, 
+                                          by.x = "CTaa", by.y = "CTaa", 
+                                          all.x = TRUE, all.y = TRUE) %>% arrange(desc(count.x))
+
+colnames(summary.count.clonaltype.1st.GFP) <- c("CTaa", "GFPexp1_m1", "GFPexp1_m2")
+
+summary.count.clonaltype.1st.GFP[is.na(summary.count.clonaltype.1st.GFP)] <- 0
+
+summary.clonaltype.1st <- data.frame(unique(c(count.clonaltype.1st$GFPexp1_m1$CTaa, 
+                                              count.clonaltype.1st$GFPexp1_m2$CTaa)))
+
+colnames(summary.clonaltype.1st) <- c("CTaa")
+
+summary.clonaltype.1st <- summary.clonaltype.1st %>% rowwise %>% 
+  mutate(Status = assign_status_for_clonaltype_1st(clone = CTaa, 
+                                                   mode = "GFP",
+                                                   count.clonaltype = count.clonaltype.1st, 
+                                                   summary.count.clonaltype = summary.count.clonaltype.1st.GFP))
+
+final.summary.clonaltype.1st.GFP <- merge(summary.clonaltype.1st, summary.count.clonaltype.1st.GFP, by.x = "CTaa", by.y = "CTaa")
+final.summary.clonaltype.1st.GFP.raw <- final.summary.clonaltype.1st.GFP
+final.summary.clonaltype.1st.GFP <- subset(final.summary.clonaltype.1st.GFP, final.summary.clonaltype.1st.GFP$Status != "excluded")
+
+final.summary.clonaltype.1st.GFP <- final.summary.clonaltype.1st.GFP %>% rowwise %>%
+  mutate(total = GFPexp1_m1 + GFPexp1_m2) 
+
+writexl::write_xlsx(x = final.summary.clonaltype.1st.GFP.raw, path = file.path(path.to.02.output, "final_summary_clones_1stDataset_GFP.raw.xlsx"))
+writexl::write_xlsx(x = final.summary.clonaltype.1st.CD45.raw, path = file.path(path.to.02.output, "final_summary_clones_1stDataset_CD45.raw.xlsx"))
+
+writexl::write_xlsx(x = final.summary.clonaltype.1st.GFP, path = file.path(path.to.02.output, "final_summary_clones_1stDataset_GFP.xlsx"))
+writexl::write_xlsx(x = final.summary.clonaltype.1st.CD45, path = file.path(path.to.02.output, "final_summary_clones_1stDataset_CD45.xlsx"))
+```
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='hide'}
+gfp.clones <- final.summary.clonaltype.1st.GFP
+
+gfp.shared2.clones <- subset(gfp.clones, gfp.clones$Status == "in_2_samples")
+gfp.unique.clones <- subset(gfp.clones, gfp.clones$Status == "unique_in_1_sample")
+
+cd45.clones <- final.summary.clonaltype.1st.CD45
+
+cd45.shared2.clones <- subset(cd45.clones, cd45.clones$Status == "in_2_samples")
+cd45.unique.clones <- subset(cd45.clones, cd45.clones$Status == "unique_in_1_sample")
+
+dir.create(file.path(path.to.02.output, "GFP"), showWarnings = FALSE)
+dir.create(file.path(path.to.02.output, "CD45"), showWarnings = FALSE)
+
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis'}
+gfp.clones %>% create_dt()
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis'}
+cd45.clones %>% create_dt()
+```
+
+## GFP
+
+### GFP, clones shared in 2 samples
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dpi = 300, dev = 'svg', dpi = 300}
+dir.create(file.path(path.to.02.output, "GFP", "clones_shared_in_2_samples"), showWarnings = FALSE)
+
+for (clone in gfp.shared2.clones$CTaa){
+  m1.cell.names <- row.names(subset(slot(s.obj, "meta.data"),
+                                        slot(s.obj, "meta.data")$CTaa == clone &
+                                          slot(s.obj, "meta.data")$name == "GFPexp1_m1"))
+  m2.cell.names <- row.names(subset(slot(s.obj, "meta.data"),
+                                          slot(s.obj, "meta.data")$CTaa == clone &
+                                            slot(s.obj, "meta.data")$name == "GFPexp1_m2"))
+  cell.names = list(GFPexp1_m1 = m1.cell.names, 
+                    GFPexp1_m2 = m2.cell.names)
+        
+  p <- DimPlot(object = s.obj,
+                     cells.highlight = cell.names,
+                     cols.highlight = c("#f77281", "#3773db"),
+                     cols = "gray", order = TRUE,
+                     sizes.highlight = 3,
+                     label = TRUE, label.size = 8,
+                     label.box = FALSE, reduction = "RNA_UMAP", pt.size = 1) + 
+    xlim(-8, 7) + ylim(-4, 5) +
+    theme(plot.title = element_text(size = 14, face = "bold")) +
+    ggtitle(sprintf("%s, \nm1: %s, m2: %s", clone, 
+                    length(m1.cell.names),
+                    length(m2.cell.names)))
+  
+  ggsave(plot = p, filename = file.path(path.to.02.output, "GFP", "clones_shared_in_2_samples", sprintf("%s.svg", clone)), device = "svg", width = 14, height = 10, units = "in", dpi = 300)
+}
+
+```
+
+### GFP, clones unique in 1 sample
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dpi = 300, dev = 'svg', dpi = 300}
+dir.create(file.path(path.to.02.output, "GFP", "clones_unique_in_1_sample"), showWarnings = FALSE)
+
+for (clone in gfp.unique.clones$CTaa){
+  m1.cell.names <- row.names(subset(slot(s.obj, "meta.data"),
+                                        slot(s.obj, "meta.data")$CTaa == clone &
+                                          slot(s.obj, "meta.data")$name == "GFPexp1_m1"))
+  m2.cell.names <- row.names(subset(slot(s.obj, "meta.data"),
+                                          slot(s.obj, "meta.data")$CTaa == clone &
+                                            slot(s.obj, "meta.data")$name == "GFPexp1_m2"))
+  cell.names = list(GFPexp1_m1 = m1.cell.names, 
+                    GFPexp1_m2 = m2.cell.names)
+        
+  p <- DimPlot(object = s.obj,
+                     cells.highlight = cell.names,
+                     cols.highlight = c("#f77281", "#3773db"),
+                     cols = "gray", order = TRUE,
+                     sizes.highlight = 3,
+                     label = TRUE, label.size = 8,
+                     label.box = FALSE, reduction = "RNA_UMAP", pt.size = 1) + 
+    xlim(-8, 7) + ylim(-4, 5) +
+    theme(plot.title = element_text(size = 14, face = "bold")) +
+    ggtitle(sprintf("%s, \nm1: %s, m2: %s", clone, 
+                    length(m1.cell.names),
+                    length(m2.cell.names)))
+  
+  ggsave(plot = p, filename = file.path(path.to.02.output, "GFP", "clones_unique_in_1_sample", sprintf("%s.svg", clone)), device = "svg", width = 14, height = 10, units = "in", dpi = 300)
+}
+
+```
+
+
+## CD45
+
+### CD45, clones shared in 2 samples
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dpi = 300, dev = 'svg', dpi = 300}
+dir.create(file.path(path.to.02.output, "CD45", "clones_shared_in_2_samples"), showWarnings = FALSE)
+
+for (clone in cd45.shared2.clones$CTaa){
+  m1.cell.names <- row.names(subset(slot(s.obj, "meta.data"),
+                                        slot(s.obj, "meta.data")$CTaa == clone &
+                                          slot(s.obj, "meta.data")$name == "CD45exp1_m1"))
+  m2.cell.names <- row.names(subset(slot(s.obj, "meta.data"),
+                                          slot(s.obj, "meta.data")$CTaa == clone &
+                                            slot(s.obj, "meta.data")$name == "CD45exp1_m2"))
+  cell.names = list(CD45exp1_m1 = m1.cell.names, 
+                    CD45exp1_m2 = m2.cell.names)
+        
+  p <- DimPlot(object = s.obj,
+                     cells.highlight = cell.names,
+                     cols.highlight = c("#f77281", "#3773db"),
+                     cols = "gray", order = TRUE,
+                     sizes.highlight = 3,
+                     label = TRUE, label.size = 8,
+                     label.box = FALSE, reduction = "RNA_UMAP", pt.size = 1) + 
+    xlim(-8, 7) + ylim(-4, 5) +
+    theme(plot.title = element_text(size = 14, face = "bold")) +
+    ggtitle(sprintf("%s, \nm1: %s, m2: %s", clone, 
+                    length(m1.cell.names),
+                    length(m2.cell.names)))
+  
+  ggsave(plot = p, filename = file.path(path.to.02.output, "CD45", "clones_shared_in_2_samples", sprintf("%s.svg", clone)), device = "svg", width = 14, height = 10, units = "in", dpi = 300)
+}
+
+```
+
+### CD45, clones unique in 1 sample
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dpi = 300, dev = 'svg', dpi = 300}
+dir.create(file.path(path.to.02.output, "CD45", "clones_unique_in_1_sample"), showWarnings = FALSE)
+
+for (clone in cd45.unique.clones$CTaa){
+  m1.cell.names <- row.names(subset(slot(s.obj, "meta.data"),
+                                        slot(s.obj, "meta.data")$CTaa == clone &
+                                          slot(s.obj, "meta.data")$name == "CD45exp1_m1"))
+  m2.cell.names <- row.names(subset(slot(s.obj, "meta.data"),
+                                          slot(s.obj, "meta.data")$CTaa == clone &
+                                            slot(s.obj, "meta.data")$name == "CD45exp1_m2"))
+  cell.names = list(CD45exp1_m1 = m1.cell.names, 
+                    CD45exp1_m2 = m2.cell.names)
+        
+  p <- DimPlot(object = s.obj,
+                     cells.highlight = cell.names,
+                     cols.highlight = c("#f77281", "#3773db"),
+                     cols = "gray", order = TRUE,
+                     sizes.highlight = 3,
+                     label = TRUE, label.size = 8,
+                     label.box = FALSE, reduction = "RNA_UMAP", pt.size = 1) + 
+    xlim(-8, 7) + ylim(-4, 5) +
+    theme(plot.title = element_text(size = 14, face = "bold")) +
+    ggtitle(sprintf("%s, \nm1: %s, m2: %s", clone, 
+                    length(m1.cell.names),
+                    length(m2.cell.names)))
+  
+  ggsave(plot = p, filename = file.path(path.to.02.output, "CD45", "clones_unique_in_1_sample", sprintf("%s.svg", clone)), device = "svg", width = 14, height = 10, units = "in", dpi = 300)
+}
+```
+
+# Calculate Shannon entropy
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dpi = 300, dev = 'svg'}
+#####----------------------------------------------------------------------#####
+# Shannon entropy
+#####----------------------------------------------------------------------#####
+if (file.exists(file.path(path.to.02.output, sprintf("final_summary_clones_1stDataset_CD45_clusterRes_%s.modified.xlsx", cluster.resolution))) == FALSE){
+  summary.clones.1st.GFP <- readxl::read_excel(file.path(path.to.02.output, "final_summary_clones_1stDataset_GFP.xlsx"))
+  summary.clones.1st.CD45 <- readxl::read_excel(file.path(path.to.02.output, "final_summary_clones_1stDataset_CD45.xlsx"))
+  summary.clones.1st.GFP <- summary.clones.1st.GFP %>% rowwise %>%
+    mutate(Shannon.entropy = calculate_shannon_entropy(clone = CTaa, 
+                                                       s.obj = subset(s.obj, seurat_clusters %in% c(3, 5, 6, 8)) ))
+    
+  summary.clones.1st.CD45 <- summary.clones.1st.CD45 %>% rowwise %>%
+    mutate(Shannon.entropy = calculate_shannon_entropy(clone = CTaa, 
+                                                       s.obj = subset(s.obj, seurat_clusters %in% c(3, 5, 6, 8) == FALSE) ))
+  
+  #####----------------------------------------------------------------------#####
+  # save results to excel files
+  #####----------------------------------------------------------------------#####
+  writexl::write_xlsx(x = summary.clones.1st.GFP, path = file.path(path.to.02.output, sprintf("final_summary_clones_1stDataset_GFP_clusterRes_%s.modified.xlsx", cluster.resolution)))
+  writexl::write_xlsx(x = summary.clones.1st.CD45, path = file.path(path.to.02.output, sprintf("final_summary_clones_1stDataset_CD45_clusterRes_%s.modified.xlsx", cluster.resolution)))
+} else {
+  summary.clones.1st.GFP <- readxl::read_xlsx(file.path(path.to.02.output, sprintf("final_summary_clones_1stDataset_GFP_clusterRes_%s.modified.xlsx", cluster.resolution)))
+  summary.clones.1st.CD45 <- readxl::read_xlsx(file.path(path.to.02.output, sprintf("final_summary_clones_1stDataset_CD45_clusterRes_%s.modified.xlsx", cluster.resolution)))
+}
+```
+
+## GFP
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dpi = 300, dev = 'svg'}
+summary.clones.1st.GFP %>% create_dt()
+```
+
+## CD45
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dpi = 300, dev = 'svg'}
+summary.clones.1st.CD45 %>% create_dt()
+```
+
+# Generate clone-UMAP plots
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dpi = 300, dev = 'svg'}
+unique.summary.clones.1st.GFP <- subset(summary.clones.1st.GFP, summary.clones.1st.GFP$Status == "unique_in_1_sample") %>% arrange(desc(total))
+shared.summary.clones.1st.GFP <- subset(summary.clones.1st.GFP, summary.clones.1st.GFP$Status != "unique_in_1_sample") %>% arrange(desc(total))
+
+unique.summary.clones.1st.CD45 <- subset(summary.clones.1st.CD45, summary.clones.1st.CD45$Status == "unique_in_1_sample") %>% arrange(desc(total))
+shared.summary.clones.1st.CD45 <- subset(summary.clones.1st.CD45, summary.clones.1st.CD45$Status != "unique_in_1_sample") %>% arrange(desc(total))
+
+##### GFP
+
+# Unique clones
+split.unique.clones.gfp <- split(unique.summary.clones.1st.GFP$CTaa, ceiling(seq_along(unique.summary.clones.1st.GFP$CTaa) / 9))
+for (part in names(split.unique.clones.gfp)){
+  p <- plot_a_list_of_clonal_types_1st_dataset_GFP(split.unique.clones.gfp[[part]], s.obj)
+  ggsave(plot = p, filename = file.path(path.to.02.output, "GFP", sprintf("unique_clones_in_GFPexp1_m1_m2_part_%s.svg", part)),
+         device = 'svg', dpi = 300, width = 14, height = 10, units = "in")
+}
+
+# shared clones
+split.shared.clones.gfp <- split(shared.summary.clones.1st.GFP$CTaa, ceiling(seq_along(shared.summary.clones.1st.GFP$CTaa) / 9))
+for (part in names(split.shared.clones.gfp)){
+  p <- plot_a_list_of_clonal_types_1st_dataset_GFP(split.shared.clones.gfp[[part]], s.obj)
+  ggsave(plot = p, filename = file.path(path.to.02.output, "GFP", sprintf("shared_clones_in_GFPexp1_m1_m2_part_%s.svg", part)),
+         device = 'svg', dpi = 300, width = 14, height = 10, units = "in")
+}
+
+##### CD45
+
+# Unique clones
+split.unique.clones.cd45 <- split(unique.summary.clones.1st.CD45$CTaa, ceiling(seq_along(unique.summary.clones.1st.CD45$CTaa) / 9))
+for (part in names(split.unique.clones.cd45)){
+  p <- plot_a_list_of_clonal_types_1st_dataset_CD45(split.unique.clones.cd45[[part]], s.obj)
+  ggsave(plot = p, filename = file.path(path.to.02.output, "CD45", sprintf("unique_clones_in_CD45exp1_m1_m2_part_%s.svg", part)),
+         device = 'svg', dpi = 300, width = 14, height = 10, units = "in")
+}
+
+# shared clones
+split.shared.clones.cd45 <- split(shared.summary.clones.1st.CD45$CTaa, ceiling(seq_along(shared.summary.clones.1st.CD45$CTaa) / 9))
+for (part in names(split.shared.clones.cd45)){
+  p <- plot_a_list_of_clonal_types_1st_dataset_CD45(split.shared.clones.cd45[[part]], s.obj)
+  ggsave(plot = p, filename = file.path(path.to.02.output, "CD45", sprintf("shared_clones_in_CD45exp1_m1_m2_part_%s.svg", part)),
+         device = 'svg', dpi = 300, width = 14, height = 10, units = "in")
+}
+```
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dpi = 300, dev = 'svg'}
+label <- TRUE
+label.box <- TRUE
+label.color <- "blue"
+label.size <- 8
+repel <- TRUE 
+pt.size <- 0.5
+fig.width <- 14
+fig.height <- 10
+cols <- c("lightgray", "darkblue")
+
+p <- FeaturePlot(object = s.obj, reduction = "RNA_UMAP", features = c("percent.mt"), pt.size = 1) + 
+    xlim(-8, 7) + ylim(-4, 5) 
+ggsave(p, file.path(path.to.02.output), filename = "percent_mt_dataset1.svg", width = 14, height = 10, dpi = 300, device = "svg")
+```
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# EOF
+```
+
+
+
+
+

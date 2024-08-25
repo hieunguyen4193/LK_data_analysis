@@ -1,0 +1,256 @@
+---
+title: "Cell sampling and Shannon entropy for the 230316 dataset, m368 vs m369"
+author:
+  - "trnguyen@ukaachen.de"
+date: "Last update on `r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    keep_md: yes
+    df_print: paged
+    toc: true
+    toc_float:
+      toc_collapsed: false
+    toc_depth: 3
+    number_sections: false
+    theme: lumen
+---
+
+
+
+```{css zoom-lib-src, echo = FALSE}
+script src = "https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"
+```
+
+```{js zoom-jquery, echo = FALSE}
+ $(document).ready(function() {
+    $('body').prepend('<div class=\"zoomDiv\"><img src=\"\" class=\"zoomImg\"></div>');
+    // onClick function for all plots (img's)
+    $('img:not(.zoomImg)').click(function() {
+      $('.zoomImg').attr('src', $(this).attr('src')).css({width: '100%'});
+      $('.zoomDiv').css({opacity: '1', width: 'auto', border: '1px solid white', borderRadius: '5px', position: 'fixed', top: '50%', left: '50%', marginRight: '-50%', transform: 'translate(-50%, -50%)', boxShadow: '0px 0px 50px #888888', zIndex: '50', overflow: 'auto', maxHeight: '100%'});
+    });
+    // onClick function for zoomImg
+    $('img.zoomImg').click(function() {
+      $('.zoomDiv').css({opacity: '0', width: '0%'}); 
+    });
+  });
+```
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='hide'}
+PROJECT <- "230316_Kopplin"
+outdir <- "/media/hieunguyen/HNSD_MBPro/CRC1382/outdir/LKopplin_OFFICIAL"
+
+path.to.main.src.project <- "/home/hieunguyen/CRC1382/src_2023/LKopplin/230316_Kopplin"
+source(file.path(path.to.main.src.project, "00_import_libraries.R"))
+source(file.path(path.to.main.src.project, "00_helper_functions.R"))
+
+path.to.main.input <- file.path(outdir, sprintf("%s/1st_round/pct_mito_10_1", PROJECT))
+path.to.main.output <- file.path(outdir, sprintf("%s/1st_round/pct_mito_10_1/data_analysis", PROJECT))
+
+path.to.01.output <- file.path(path.to.main.output, "01_output")
+path.to.02.output <- file.path(path.to.main.output, "02_output_m368_vs_m369")
+path.to.03.output <- file.path(path.to.main.output, "03_output_m368_vs_m369")
+path.to.04.output <- file.path(path.to.main.output, "04_output_m368_vs_m369")
+
+s.obj <- readRDS(file.path(path.to.02.output, "230316_Kopplin.m368_m369.seurat.obj.addedShannonEntropy.rds"))
+
+path.to.04.output <- file.path(path.to.main.output, "04_output")
+dir.create(path.to.04.output, showWarnings = FALSE, recursive = TRUE)
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis'}
+##### read file clone.summary in
+clone.summary <- read.csv(file.path(path.to.02.output, "final_VDJ_summary.csv"))
+colnames(clone.summary) <- c("X", "CTaa", "m368", "m369", "total", "status", "Shannon.entropy")
+
+##### add total number of cells information to the main seurat object
+meta.data <- s.obj@meta.data %>% rownames_to_column("barcode")
+
+meta.data <- merge(meta.data, clone.summary, by.x = "CTaa", by.y = "CTaa", all.x = TRUE) %>%
+  column_to_rownames("barcode")
+
+meta.data <- meta.data[row.names(s.obj@meta.data), ]
+
+s.obj <- AddMetaData(object = s.obj, metadata = meta.data$total, col.name = "total")
+
+###### select clones with >= 10 cells
+clone.summary.lt.10 <- subset(clone.summary, clone.summary$total < 10)
+clone.summary <- subset(clone.summary, clone.summary$total >= 10)
+```
+
+# Sampling cells and calculate Shannon entropy
+
+## Boxplot: All Shannon entropies
+
+```{r dataset_230316_m368_m369_all_read_clone_shannon, echo=FALSE, warning=FALSE, message=FALSE, results='asis'}
+all.shannon.entropy <- subset(clone.summary, select = c(CTaa, Shannon.entropy))
+all.shannon.entropy %>% ggplot(aes(y = Shannon.entropy)) + geom_boxplot()
+
+```
+
+## Boxplot: Comparson between real clones and sampled clones Shannon entropies {.tabset}
+
+```{r dataset_230316_m368_m369_sampling_shannon, ampling_shannon_entropies, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.height=10, fig.width=10, dpi=300, dev='svg'}
+all.clone.sizes <- sort(unique(clone.summary$total))
+dir.create(file.path(path.to.04.output, "validation_m368_vs_m369"), showWarnings = FALSE, recursive = TRUE)
+##### Helper function
+calculate_shannon_entropy_sampling_cells <- function(list_of_cells, s.obj){
+  N <- length(unique(s.obj$seurat_clusters))
+  count_clone_in_cluster <- table(subset(s.obj@meta.data, row.names(s.obj@meta.data) %in% list_of_cells) %>%
+                                    subset(select = c(seurat_clusters))) %>%  as.data.frame()
+  count_clone_in_cluster <- count_clone_in_cluster %>% rowwise %>% mutate(Prob = Freq / sum(count_clone_in_cluster$Freq)) %>%
+    subset(Prob != 0)
+  shannon_entropy <- -sum(count_clone_in_cluster$Prob * log2(count_clone_in_cluster$Prob))/log2(N)
+  return(shannon_entropy)
+}
+for (num.sampling.cells in all.clone.sizes){
+  all.cells <- colnames(s.obj)
+  all.sampling.entropies <- c()
+
+  for (count in seq(1, 1000)){
+    sampling.cells <- sample(all.cells, num.sampling.cells)
+    tmp.sampling.shannon.entropy <- calculate_shannon_entropy_sampling_cells(sampling.cells, s.obj)
+    all.sampling.entropies <- c(all.sampling.entropies, tmp.sampling.shannon.entropy)
+  }
+
+  samplingdf <- data.frame(data = all.sampling.entropies)
+  colnames(samplingdf) <- c("Shannon.entropy")
+  samplingdf$CTaa <- to_vec( for (item in seq(1, 1000)) sprintf("sampling_%s", item))
+  samplingdf <- samplingdf[c("CTaa", "Shannon.entropy")]
+  samplingdf$case <- "Sampling"
+
+  all.shannon.entropy$case <- "real_clone"
+
+  validationdf <- rbind(all.shannon.entropy, samplingdf)
+
+  p <- validationdf %>% ggplot(aes(x = case, y = Shannon.entropy)) + geom_boxplot() +
+    ggtitle(sprintf("Shannon entropy: Real clone vs sampling %s cells", num.sampling.cells))
+  cat(sprintf("### Sampling %s cells \n", num.sampling.cells))
+  print(p)
+  cat("\n \n")
+  writexl::write_xlsx(validationdf, file.path(path.to.04.output, "validation_m368_vs_m369", sprintf("validation_Shannon_entropy_sampling_%s.4th_m368_vs_m369_Dataset.xlsx", num.sampling.cells)))
+}
+```
+
+
+# Double y-axis plot
+
+- y-axis 1: Shannon entropy.
+
+- y-axis 2: Number of cells in a clone.
+
+## All clones
+```{r dataset_230316_m368_m369_double_y_all_clones, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.height=10, fig.width=14, dpi=300, dev='svg'}
+coeff <- 1000
+p <- clone.summary %>% ggplot(aes(x = reorder(CTaa, -total))) + 
+  geom_point(aes(y = Shannon.entropy)) +  ylim(0, 1) +
+  geom_bar(aes(y = total/coeff), stat = "identity") +  
+  theme(axis.text.x = element_blank()) + xlab("Clone") +  
+  scale_y_continuous(
+    name = "Shannon entropy",
+    sec.axis = sec_axis(~.*coeff, name="Number of cells") 
+  ) 
+
+p
+```
+
+## Shared clones between 2 samples
+```{r dataset_230316_m368_m369_double_y_clone_in_all_2_samples, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.height=10, fig.width=14, , dpi=300, dev='svg'}
+coeff <- 1000
+p <- subset(clone.summary, clone.summary$status == "shared_in_2_samples") %>% ggplot(aes(x = reorder(CTaa, -total))) + 
+  geom_point(aes(y = Shannon.entropy)) +  ylim(0, 1) + 
+  geom_bar(aes(y = total/coeff), stat = "identity") +  
+  theme(axis.text.x = element_blank()) + xlab("Clone") +
+  scale_y_continuous(
+    name = "Shannon entropy",
+    sec.axis = sec_axis(~.*coeff, name="Number of cells") 
+  ) 
+
+p
+```
+
+## Unique clones
+```{r dataset_230316_m368_m369_double_y_clone_in_unique_1_sample, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.height=10, fig.width=14, , dpi=300, dev='svg'}
+coeff <- 1000
+p <- subset(clone.summary, clone.summary$status == "unique_in_1_sample") %>% ggplot(aes(x = reorder(CTaa, -total))) + 
+  geom_point(aes(y = Shannon.entropy)) +  ylim(0, 1) +
+  geom_bar(aes(y = total/coeff), stat = "identity") +  
+  theme(axis.text.x = element_blank()) + xlab("Clone") +  
+  scale_y_continuous(
+    name = "Shannon entropy",
+    sec.axis = sec_axis(~.*coeff, name="Number of cells") 
+  ) 
+
+p
+
+```
+
+# Clone-size - Shannon entropy plot
+
+## UMAP 
+
+### All cells
+```{r dataset_230316_m368_m369_UMAP_all_2_samples, echo=FALSE, warning=FALSE, message=FALSE, include=TRUE, results='asis', fig.height=10, fig.width=14, dpi=300, dev='svg'}
+DimPlot(object = s.obj, reduction = "INTE_UMAP", label = TRUE, label.box = TRUE, repel = TRUE, pt.size = 1, label.size = 12)
+```
+
+# New Shannon entropy plot
+
+## Clones >= 10 cells, Shannon entropy on UMAP
+
+Clones < 10 cells are displayed in light grey color. 
+
+```{r dataset_230316_m368_m369_shannon, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.height=10, fig.width=14, dpi=300, dev='svg'}
+FeaturePlot(object = s.obj, reduction = "INTE_UMAP", features = c("Shannon.entropy"), pt.size = 1) + scale_color_gradient(low = "#FFFF00", high = "#FF0000", na.value = "lightgray") + ggtitle("")
+
+```
+
+
+## Clones < 10 cells, Clone size on UMAP
+Display clone size of all clones < 10 cells on UMAP. 
+
+```{r dataset_230316_m368_m369_clonesize_lt10, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.height=10, fig.width=14, dpi=300, dev='svg'}
+meta.data <- s.obj@meta.data %>% rownames_to_column("barcode") %>% subset(select = c(barcode, CTaa, total)) %>%
+  rowwise() %>% mutate(total.lt10 = ifelse(CTaa %in% clone.summary.lt.10$CTaa == TRUE, total, NA)) %>% column_to_rownames("barcode")
+
+meta.data <- meta.data[row.names(s.obj@meta.data), ]
+
+s.obj <- AddMetaData(object = s.obj, metadata = meta.data$total.lt10, col.name = "total.lt10")
+FeaturePlot(object = s.obj, 
+            reduction = "INTE_UMAP", features = c("total.lt10"), pt.size = 1) + scale_color_gradient(low = "#FFFF00", high = "#008b00", na.value = "lightgray") + ggtitle("")
+```
+
+## Clones >= 10 cells, Clone size on UMAP
+Display clone size of all clones >= 10 cells on UMAP. 
+
+```{r dataset_230316_m368_m369_clonesize_gt10, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.height=10, fig.width=14, dpi=300, dev='svg'}
+meta.data <- s.obj@meta.data %>% rownames_to_column("barcode") %>% subset(select = c(barcode, CTaa, total)) %>%
+  rowwise() %>% mutate(total.gt10 = ifelse(CTaa %in% clone.summary.lt.10$CTaa == FALSE, total, NA)) %>% column_to_rownames("barcode")
+
+meta.data <- meta.data[row.names(s.obj@meta.data), ]
+
+s.obj <- AddMetaData(object = s.obj, metadata = meta.data$total.gt10, col.name = "total.gt10")
+FeaturePlot(object = s.obj, 
+            reduction = "INTE_UMAP", features = c("total.gt10"), pt.size = 1) + scale_color_gradient(low = "#FFFF00", high = "#008b00", na.value = "lightgray") + ggtitle("")
+```
+
+## All cells, Clone size on UMAP
+
+```{r dataset_230316_m368_m369_clonesize_all, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.height=10, fig.width=14, dpi=300, dev='svg'}
+FeaturePlot(object = s.obj, 
+            reduction = "INTE_UMAP", features = c("total"), pt.size = 1) + scale_color_gradient(low = "#FFFF00", high = "#008b00", na.value = "lightgray") + ggtitle("")
+```
+
+## All cells, Clone size on UMAP, log
+
+```{r dataset_230316_m368_m369_clonesize_all_logScale, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.height=10, fig.width=14, dpi=300, dev='svg'}
+s.obj$log.total <- log10(s.obj$total)
+FeaturePlot(object = s.obj, 
+            reduction = "INTE_UMAP", features = c("log.total"), pt.size = 1) + scale_color_gradient(low = "#FFFF00", high = "#008b00", na.value = "lightgray") + ggtitle("")
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.height=10, fig.width=14}
+```
+
+

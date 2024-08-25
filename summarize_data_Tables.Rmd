@@ -1,0 +1,695 @@
+---
+title: "Summary data tables for all datasets"
+author:
+  - "trnguyen@ukaachen.de"
+date: "Last update on `r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    keep_md: no
+    df_print: paged
+    toc: true
+    toc_float:
+      toc_collapsed: false
+    toc_depth: 3
+    number_sections: false
+    theme: lumen
+---
+
+
+
+```{css zoom-lib-src, echo = FALSE}
+script src = "https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"
+```
+
+```{js zoom-jquery, echo = FALSE}
+ $(document).ready(function() {
+    $('body').prepend('<div class=\"zoomDiv\"><img src=\"\" class=\"zoomImg\"></div>');
+    // onClick function for all plots (img's)
+    $('img:not(.zoomImg)').click(function() {
+      $('.zoomImg').attr('src', $(this).attr('src')).css({width: '100%'});
+      $('.zoomDiv').css({opacity: '1', width: 'auto', border: '1px solid white', borderRadius: '5px', position: 'fixed', top: '50%', left: '50%', marginRight: '-50%', transform: 'translate(-50%, -50%)', boxShadow: '0px 0px 50px #888888', zIndex: '50', overflow: 'auto', maxHeight: '100%'});
+    });
+    // onClick function for zoomImg
+    $('img.zoomImg').click(function() {
+      $('.zoomDiv').css({opacity: '0', width: '0%'}); 
+    });
+  });
+```
+
+<style type="text/css">
+    div.datatables { height: auto !important;}
+</style>
+
+
+```{r echo=FALSE, results='hide', warning=FALSE, message=FALSE, include=TRUE, fig.width=14, fig.height=10}
+gc()
+rm(list = ls())
+#####----------------------------------------------------------------------#####
+##### LIBRARIES 
+#####----------------------------------------------------------------------#####
+path.to.pipeline.src <- "/home/hieunguyen/CRC1382/src_2023/src_pipeline/scRNA_GEX_pipeline"
+
+source(file.path(path.to.pipeline.src, "processes_src", "helper_functions.R"))
+source(file.path(path.to.pipeline.src, "processes_src", "import_libraries.R"))
+
+
+outdir <- "/media/hieunguyen/HNSD_MBPro/CRC1382/outdir/LKopplin_OFFICIAL"
+path.to.save.output <- file.path(outdir, "summary_clone_dfs")
+dir.create(path.to.save.output, showWarnings = FALSE, recursive = TRUE)
+
+##### PATHS
+# Dataset paths
+dataset.path <- list(Dataset1 = file.path(outdir, "1stExp_Kopplin"),
+                     Dataset2 = file.path(outdir, "211227_Kopplin"),
+                     Dataset3 = file.path(outdir, "230215_Kopplin_Pabst_added_NC_000001_merged_zcat_m330_m331_remove_c9"),
+                     Dataset4 = file.path(outdir, "230316_Kopplin"))
+
+# Sampling/validation data paths
+validationdir <- list(Dataset1_GFP = file.path(dataset.path$Dataset1, "data_analysis/03_output/validation_GFP_ShannonEntropy"),
+                      Dataset1_CD45 = file.path(dataset.path$Dataset1, "data_analysis/03_output/validation_CD45_ShannonEntropy"),
+                      Dataset2 = file.path(dataset.path$Dataset2, "data_analysis/04_output/validation_Shannon_entropy"),
+                      Dataset3 = file.path(dataset.path$Dataset3, "1st_round/pct_mito_10_1/data_analysis/04_output/validation_Shannon_entropy"),
+                      Dataset4_m366_vs_m367 = file.path(dataset.path$Dataset4, "1st_round/pct_mito_10_1/data_analysis/04_output/validation_m366_vs_m367"),
+                      Dataset4_m366_vs_m368 = file.path(dataset.path$Dataset4, "1st_round/pct_mito_10_1/data_analysis/04_output/validation_m366_vs_m368"),
+                      Dataset4_m366_vs_m369 = file.path(dataset.path$Dataset4, "1st_round/pct_mito_10_1/data_analysis/04_output/validation_m366_vs_m369"),
+                      Dataset4_m367_vs_m368 = file.path(dataset.path$Dataset4, "1st_round/pct_mito_10_1/data_analysis/04_output/validation_m367_vs_m368"),
+                      Dataset4_m367_vs_m369 = file.path(dataset.path$Dataset4, "1st_round/pct_mito_10_1/data_analysis/04_output/validation_m367_vs_m369"),
+                      Dataset4_m368_vs_m369 = file.path(dataset.path$Dataset4, "1st_round/pct_mito_10_1/data_analysis/04_output/validation_m368_vs_m369"))
+
+# Real clone summary tables
+real_clone_summary <- list(
+  Dataset1_GFP = readxl::read_excel(file.path(dataset.path$Dataset1, "data_analysis", "02_output", "final_summary_clones_1stDataset_GFP_clusterRes_1.modified.xlsx")),
+  Dataset1_CD45 = readxl::read_excel(file.path(dataset.path$Dataset1, "data_analysis", "02_output", "final_summary_clones_1stDataset_CD45_clusterRes_1.modified.xlsx")),
+  Dataset2 = readxl::read_excel(file.path(dataset.path$Dataset2, "data_analysis", "02_output", "final_summary_clones_2ndDataset.withShannonEntropy.xlsx")),
+  Dataset3 = read.csv(file.path(dataset.path$Dataset3, "1st_round/pct_mito_10_1/data_analysis/02_output/final_VDJ_summary.csv")),
+  Dataset4_m366_vs_m367 = read.csv(file.path(dataset.path$Dataset4, "1st_round/pct_mito_10_1/data_analysis/02_output_m366_vs_m367/final_VDJ_summary.csv")),
+  Dataset4_m366_vs_m368 = read.csv(file.path(dataset.path$Dataset4, "1st_round/pct_mito_10_1/data_analysis/02_output_m366_vs_m368/final_VDJ_summary.csv")),
+  Dataset4_m366_vs_m369 = read.csv(file.path(dataset.path$Dataset4, "1st_round/pct_mito_10_1/data_analysis/02_output_m366_vs_m369/final_VDJ_summary.csv")),
+  Dataset4_m367_vs_m368 = read.csv(file.path(dataset.path$Dataset4, "1st_round/pct_mito_10_1/data_analysis/02_output_m367_vs_m368/final_VDJ_summary.csv")),
+  Dataset4_m367_vs_m369 = read.csv(file.path(dataset.path$Dataset4, "1st_round/pct_mito_10_1/data_analysis/02_output_m367_vs_m369/final_VDJ_summary.csv")),
+  Dataset4_m368_vs_m369 = read.csv(file.path(dataset.path$Dataset4, "1st_round/pct_mito_10_1/data_analysis/02_output_m368_vs_m369/final_VDJ_summary.csv"))
+)
+```
+
+# All clone tables {.tabset}
+All datasets' clone information tables, in each table we show the clone `CTaa`, the `status` (shared clone or unique clone), the number of occurence in each sample, the total number of occurence, and the `Shannon entropy`.
+
+**Saved file name**: All_clone_tables/All_clones_in_**dataset name**.xlsx
+
+```{r echo=FALSE, results='asis', warning=FALSE, message=FALSE, include=FALSE, fig.width=14, fig.height=10}
+real_clone_summary$Dataset1_GFP %>% create_dt()
+```
+
+```{r echo=FALSE, results='asis', warning=FALSE, message=FALSE, include=TRUE, fig.width=14, fig.height=10}
+dir.create(file.path(path.to.save.output, "All_clone_tables"), showWarnings = FALSE, recursive = TRUE)
+
+for (dataset.name in names(real_clone_summary)){
+  cat(sprintf("## Dataset: %s \n", dataset.name))
+  tmpdf <- real_clone_summary[[dataset.name]]
+  print( htmltools::tagList(datatable(tmpdf, extensions = 'Buttons',
+                filter = "top",
+                options = list(dom = 'Blfrtip',
+                               buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+                               lengthMenu = list(c(10,25,50,-1),
+                                                 c(10,25,50,"All")),
+                               columnDefs = list(list(
+                                 targets = "_all",
+                                 render = JS(
+                                   "function(data, type, row, meta) {",
+                                   "return type === 'display' && data != null && data.length > 100 ?",
+                                   "'<span title=\"' + data + '\">' + data.substr(0, 100) + '...</span>' : data;",
+                                   "}")
+                               ))
+                ))))
+  cat("\n \n")
+  writexl::write_xlsx(tmpdf, file.path(path.to.save.output, "All_clone_tables", sprintf("All_clones_in_%s.xlsx", dataset.name)))
+}
+```
+
+# Merged Shannon entropy tables (all real clone and sampled cells)
+These data tables are used to compare the Shannon entropy of **real clones** and **sampled cells**
+
+## Tables 
+**Saved file name**: Merged_real_clone_and_sampled_cells_Shannon_entropy/merge_all_sampled_and_real_Shannon_entropy_**dataset name**.xlsx
+
+```{r echo=FALSE, results='asis', warning=FALSE, message=FALSE, include=TRUE, fig.width=14, fig.height=10}
+dir.create(file.path(path.to.save.output, "Merged_real_clone_and_sampled_cells_Shannon_entropy"), showWarnings = FALSE, recursive = TRUE)
+
+real_clone_summary$Dataset1_GFP <- real_clone_summary$Dataset1_GFP %>% 
+  subset(select = c(CTaa, total, Status, Shannon.entropy))
+
+real_clone_summary$Dataset1_CD45 <- real_clone_summary$Dataset1_CD45 %>% 
+  subset(select = c(CTaa, total, Status, Shannon.entropy))
+
+real_clone_summary$Dataset2 <- real_clone_summary$Dataset2 %>%
+  subset(select = c(CTaa, total, Status, Shannon.entropy))
+
+real_clone_summary$Dataset3 <- real_clone_summary$Dataset3 %>%
+  subset(select = c(clone, total, status, Shannon.entropy))
+
+real_clone_summary$Dataset4_m366_vs_m367 <- real_clone_summary$Dataset4_m366_vs_m367 %>%
+  subset(select = c(clone, total, status, Shannon.entropy))
+
+real_clone_summary$Dataset4_m366_vs_m368 <- real_clone_summary$Dataset4_m366_vs_m368 %>%
+  subset(select = c(clone, total, status, Shannon.entropy))
+
+real_clone_summary$Dataset4_m366_vs_m369 <- real_clone_summary$Dataset4_m366_vs_m369 %>%
+  subset(select = c(clone, total, status, Shannon.entropy))
+
+real_clone_summary$Dataset4_m367_vs_m368 <- real_clone_summary$Dataset4_m367_vs_m368 %>%
+  subset(select = c(clone, total, status, Shannon.entropy))
+
+real_clone_summary$Dataset4_m367_vs_m369 <- real_clone_summary$Dataset4_m367_vs_m369 %>%
+  subset(select = c(clone, total, status, Shannon.entropy))
+
+real_clone_summary$Dataset4_m368_vs_m369 <- real_clone_summary$Dataset4_m368_vs_m369 %>%
+  subset(select = c(clone, total, status, Shannon.entropy))
+
+for (name in names(real_clone_summary)){
+  colnames(real_clone_summary[[name]]) <- c("clone", "total", "status", "Shannon.entropy")
+}
+
+real_clone_shannon <- list()
+for (name in names(real_clone_summary)){
+  tmp <- real_clone_summary[[name]] %>% subset(select = c(Shannon.entropy))
+  colnames(tmp) <- c("real_clone")
+  real_clone_shannon[[name]]  <- tmp
+}
+
+finalClonedf <- list()
+
+for (name in names(real_clone_summary)){
+  finalClonedf[[name]] <- real_clone_summary[[name]]
+  validation.files <- Sys.glob(file.path(validationdir[[name]], "*.xlsx"))
+  
+  validation.idx <- sort(to_vec( for (file in validation.files) as.numeric(str_replace(str_split(basename(file), "[.]")[[1]][[1]], "validation_Shannon_entropy_sampling_", ""))))
+  
+  for (idx in validation.idx){
+    file <- Sys.glob(file.path(validationdir[[name]], sprintf("validation_Shannon_entropy_sampling_%s.*.xlsx", idx)))
+    if (length(file) != 1){
+      print("ERROR1")
+    } else {
+      file <- file[[1]]
+    }
+
+    samplingdf <- readxl::read_excel(file)
+    samplingdf$total <- idx
+    colnames(samplingdf) <- c("clone", "Shannon.entropy", "status", "total")
+    samplingdf <- samplingdf[, c("clone", "total", "status", "Shannon.entropy")]
+    samplingdf <- subset(samplingdf, samplingdf$status != "real_clone")
+    tmpdf <- data.frame(data = c(sprintf("sampling_size_%s", idx)))
+    colnames(tmpdf) <- c("clone")
+    tmpdf$total <- idx
+    tmpdf$status <- "Sampling"
+    tmpdf$Shannon.entropy <- mean(samplingdf$Shannon.entropy)
+    finalClonedf[[name]] <- rbind(finalClonedf[[name]], tmpdf)
+    
+    sampling_shannon <- subset(samplingdf, select = c(Shannon.entropy))
+    colnames(sampling_shannon) <- c(sprintf("%s cells", idx))
+    
+    real_clone_shannon[[name]] <- real_clone_shannon[[name]] %>% rownames_to_column("id")
+    real_clone_shannon[[name]] $id <- as.numeric(real_clone_shannon[[name]] $id)
+    sampling_shannon <- sampling_shannon %>% rownames_to_column("id")
+    sampling_shannon$id <- as.numeric(sampling_shannon$id)
+    real_clone_shannon[[name]] <- merge(real_clone_shannon[[name]] , sampling_shannon, all = TRUE, by.x = "id", by.y = "id")
+    
+    real_clone_shannon[[name]] <- subset(real_clone_shannon[[name]], select = -c(id))
+  }
+  writexl::write_xlsx(real_clone_shannon[[name]], path = file.path(path.to.save.output, "Merged_real_clone_and_sampled_cells_Shannon_entropy", sprintf("merge_all_sampled_and_real_Shannon_entropy_%s.xlsx", name)) )
+}
+```
+
+```{r echo=FALSE, results='asis', warning=FALSE, message=FALSE, include=FALSE, fig.width=14, fig.height=10}
+real_clone_shannon$Dataset1_GFP %>% create_dt()
+```
+
+```{r echo=FALSE, results='asis', warning=FALSE, message=FALSE, include=TRUE, fig.width=14, fig.height=10}
+for (dataset.name in names(real_clone_shannon)){
+  cat(sprintf("### Dataset: %s \n", dataset.name))
+  tmpdf <- real_clone_shannon[[dataset.name]]
+  print( htmltools::tagList(datatable(tmpdf, extensions = 'Buttons',
+                filter = "top",
+                options = list(dom = 'Blfrtip',
+                               buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+                               lengthMenu = list(c(10,25,50,-1),
+                                                 c(10,25,50,"All")),
+                               columnDefs = list(list(
+                                 targets = "_all",
+                                 render = JS(
+                                   "function(data, type, row, meta) {",
+                                   "return type === 'display' && data != null && data.length > 100 ?",
+                                   "'<span title=\"' + data + '\">' + data.substr(0, 100) + '...</span>' : data;",
+                                   "}")
+                               ))
+                ))))
+  cat("\n \n")
+}
+```
+
+## Boxplot {.tabset}
+```{r echo=FALSE, results='asis', warning=FALSE, message=FALSE, include=TRUE, fig.width=20, fig.height=15}
+for (dataset.name in names(real_clone_shannon)){
+  cat(sprintf("### Dataset %s \n", dataset.name))
+  p <- real_clone_shannon[[dataset.name]] %>% rownames_to_column("index") %>% pivot_longer(!index, names_to = "clone", values_to = "Shannon.entropy") %>% ggplot(aes(x = clone, y = Shannon.entropy)) + geom_boxplot() 
+  print(p)
+  cat("\n \n")
+}
+
+```
+
+
+# Double y-axis plots (Number of clones (real clone - sampled cells) and Shannon entropy), all {.tabset}
+**Saved file name**: Input_for_double_y_axis_plots/summmary_real_clone_and_sampled_clones_Shannon_entropy_dataset_**dataset name**.xlsx
+
+## Tables {.tabset}
+```{r echo=FALSE, results='asis', warning=FALSE, message=FALSE, include=TRUE, fig.width=14, fig.height=10}
+dir.create(file.path(path.to.save.output, "Input_for_double_y_axis_plots"), showWarnings = FALSE, recursive = TRUE)
+for (name in names(real_clone_summary)){
+  cat(sprintf("### Dataset %s \n", name))
+  tmpdf <- finalClonedf[[name]]
+  
+  print( htmltools::tagList(datatable(tmpdf, extensions = 'Buttons',
+                filter = "top",
+                options = list(dom = 'Blfrtip',
+                               buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+                               lengthMenu = list(c(10,25,50,-1),
+                                                 c(10,25,50,"All")),
+                               columnDefs = list(list(
+                                 targets = "_all",
+                                 render = JS(
+                                   "function(data, type, row, meta) {",
+                                   "return type === 'display' && data != null && data.length > 100 ?",
+                                   "'<span title=\"' + data + '\">' + data.substr(0, 100) + '...</span>' : data;",
+                                   "}")
+                               ))
+                ))))
+  cat("\n \n")
+  
+  writexl::write_xlsx(x = tmpdf, path = file.path(path.to.save.output, "Input_for_double_y_axis_plots", sprintf("summmary_real_clone_and_sampled_clones_Shannon_entropy_dataset_%s.xlsx", name)))
+  
+}
+```
+
+## Figures {.tabset}
+```{r echo=FALSE, results='asis', warning=FALSE, message=FALSE, include=TRUE, fig.width=14, fig.height=10}
+dir.create(file.path(path.to.save.output, "Input_for_double_y_axis_plots"), showWarnings = FALSE, recursive = TRUE)
+for (name in names(real_clone_summary)){
+  cat(sprintf("### Dataset %s \n", name))
+  tmpdf <- finalClonedf[[name]]
+  coeff <- max(tmpdf$total) + 100 
+  p <- tmpdf %>% ggplot(aes(x = reorder(clone, -total))) + 
+    geom_bar(aes(y = total/coeff), stat = "identity", fill = "#c4c4c4") +  
+    geom_point(aes(y = Shannon.entropy, color = status)) +  ylim(0, 1) +
+    theme(axis.text.x = element_blank()) + xlab("Clone") +  
+    scale_y_continuous(
+      name = "Shannon entropy",
+      sec.axis = sec_axis(~.*coeff, name="Number of cells") 
+    ) 
+  print(p)
+  
+  cat("\n \n")
+  ggsave(plot = p, path = file.path(path.to.save.output, "Input_for_double_y_axis_plots"), filename = sprintf("double_y_axis_plot_dataset_%s.svg", name), device = "svg", width = 14, height = 10, dpi = 300)
+}
+```
+
+# Double y-axis plots (Number of clones (real clone - sampled cells) and Shannon entropy), >= 10 cells only {.tabset}
+**Saved file name**: Input_for_double_y_axis_plots_filter10cells/summmary_real_clone_and_sampled_clones_Shannon_entropy_dataset_**dataset name**.filter10cells.xlsx
+
+## Tables {.tabset}
+```{r echo=FALSE, results='asis', warning=FALSE, message=FALSE, include=TRUE, fig.width=14, fig.height=10}
+dir.create(file.path(path.to.save.output, "Input_for_double_y_axis_plots_filter10cells"), showWarnings = FALSE, recursive = TRUE)
+
+for (name in names(real_clone_summary)){
+  cat(sprintf("### Dataset %s \n", name))
+  tmpdf <- finalClonedf[[name]] %>% subset(total >= 10)
+  print( htmltools::tagList(datatable(tmpdf, extensions = 'Buttons',
+                filter = "top",
+                options = list(dom = 'Blfrtip',
+                               buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+                               lengthMenu = list(c(10,25,50,-1),
+                                                 c(10,25,50,"All")),
+                               columnDefs = list(list(
+                                 targets = "_all",
+                                 render = JS(
+                                   "function(data, type, row, meta) {",
+                                   "return type === 'display' && data != null && data.length > 100 ?",
+                                   "'<span title=\"' + data + '\">' + data.substr(0, 100) + '...</span>' : data;",
+                                   "}")
+                               ))
+                ))))
+  cat("\n \n")
+  writexl::write_xlsx(x = tmpdf, path = file.path(path.to.save.output, "Input_for_double_y_axis_plots_filter10cells", sprintf("summmary_real_clone_and_sampled_clones_Shannon_entropy_dataset_%s.filter10cells.xlsx", name)))
+}
+```
+
+## Figures {.tabset}
+```{r echo=FALSE, results='asis', warning=FALSE, message=FALSE, include=TRUE, fig.width=14, fig.height=10}
+for (name in names(real_clone_summary)){
+  cat(sprintf("### Dataset %s \n", name))
+  tmpdf <- finalClonedf[[name]] %>% subset(total >= 10)
+  coeff <- max(tmpdf$total) + 100 
+  p <- tmpdf %>% ggplot(aes(x = reorder(clone, -total))) + 
+    geom_bar(aes(y = total/coeff), stat = "identity", fill = "#c4c4c4") +  
+    geom_point(aes(y = Shannon.entropy, color = status)) +  ylim(0, 1) +
+    theme(axis.text.x = element_blank()) + xlab("Clone") +  
+    scale_y_continuous(
+      name = "Shannon entropy",
+      sec.axis = sec_axis(~.*coeff, name="Number of cells") 
+    ) 
+  print(p)
+  cat("\n \n")
+  ggsave(plot = p, path = file.path(path.to.save.output, "Input_for_double_y_axis_plots_filter10cells"), filename = sprintf("double_y_axis_plot_dataset_%s_filter_10cells.svg", name), device = "svg", width = 14, height = 10, dpi = 300)
+}
+```
+
+
+
+
+# MHI
+## Note
+In the **Dataset 4**, the following comparisons do not have any "shared clones" between the 2 samples:
+
+- m366 vs m368
+
+- m366 vs m369
+
+- m367 vs m368
+
+- m367 vs m369
+
+we exclude these comparisons from the analysis of Dataset 4. 
+
+## MHI + Shannon entropy tables {.tabset}
+Tables which contain the clone information, Shannon entropy and MHI of **shared clones** between **samples**. Empty cells (NA cells) mean that the clone is not shared in the samples or the number of occurrences less than 10. 
+
+**Save file names**: Dataset1_CD45.xlsx, Dataset1_GFP.xlsx, Dataset2.xlsx, Dataset4_m366_vs_m367.xlsx, Dataset3.xlsx, Dataset4_m368_vs_m369.xlsx
+
+```{r echo=FALSE, results='asis', warning=FALSE, message=FALSE, include=TRUE, fig.width=14, fig.height=10}
+mhi_samples <- list(
+  Dataset1_GFP = readxl::read_xlsx(file.path(path.to.save.output, "Dataset1_GFP.xlsx")),
+  Dataset1_CD45 = readxl::read_xlsx(file.path(path.to.save.output, "Dataset1_CD45.xlsx")),
+  Dataset2 = readxl::read_xlsx(file.path(path.to.save.output, "Dataset2.xlsx")),
+  Dataset3 = readxl::read_xlsx(file.path(path.to.save.output, "Dataset3.xlsx")),
+  Dataset4_m366_vs_m367 = readxl::read_xlsx(file.path(path.to.save.output, "Dataset4_m366_vs_m367.xlsx")),
+  Dataset4_m368_vs_m369 = readxl::read_xlsx(file.path(path.to.save.output, "Dataset4_m368_vs_m369.xlsx"))
+)
+
+for (name in names(mhi_samples)){
+  cat(sprintf("### Dataset %s \n", name))
+  tmpdf <- mhi_samples[[name]]
+  print( htmltools::tagList(datatable(tmpdf, extensions = 'Buttons',
+                filter = "top",
+                options = list(dom = 'Blfrtip',
+                               buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+                               lengthMenu = list(c(10,25,50,-1),
+                                                 c(10,25,50,"All")),
+                               columnDefs = list(list(
+                                 targets = "_all",
+                                 render = JS(
+                                   "function(data, type, row, meta) {",
+                                   "return type === 'display' && data != null && data.length > 100 ?",
+                                   "'<span title=\"' + data + '\">' + data.substr(0, 100) + '...</span>' : data;",
+                                   "}")
+                               ))
+                ))))
+  cat("\n \n")
+}
+```
+
+## MHI of clone vs. clone
+
+Tables which contain the MHI of clone versus clone, where clones are selected from different categories: "unique clones", "shared in 3 samples clones" or "shared in 2 samples clones". Available comparisons are: "shared clones" vs "shared clones", "unique clones" vs "unique clones", "shared clones" vs "unique clones". Clones are required to have more than 10 cells in every sample in the dataset, not total >= 10 cells. 
+
+In this analysis we just consider Dataset 2, Dataset 3 and Dataset 4.
+
+Since tables in this section are too large, we do not display them in HTML file. Please find the saved .xlsx file in the One Drive folder. 
+
+```{r echo=FALSE, results='asis', warning=FALSE, message=FALSE, include=TRUE, fig.width=14, fig.height=10}
+mhi.compare.paths <- list(
+  Dataset2 = file.path(dataset.path$Dataset2, "data_analysis/03_output"),
+  Dataset3 = file.path(dataset.path$Dataset3, "1st_round/pct_mito_10_1/data_analysis/03_output"),
+  Dataset4_m366_vs_m367 = file.path(dataset.path$Dataset4, "1st_round/pct_mito_10_1/data_analysis/03_output_m366_vs_m367"),
+  Dataset4_m368_vs_m369 = file.path(dataset.path$Dataset4, "1st_round/pct_mito_10_1/data_analysis/03_output_m368_vs_m369")
+)
+
+mhi.comparedf <- hash()
+
+for (name in names(mhi.compare.paths)){
+  mhi.comparedf[[name]] <- data.frame()
+  files <- Sys.glob(file.path(mhi.compare.paths[[name]], "*.xlsx"))
+  for (file in files){
+    mhi.comparedf[[name]] <- rbind(mhi.comparedf[[name]], readxl::read_xlsx(file)) 
+  }
+}
+
+dir.create(file.path(path.to.save.output, "MHI_clone_vs_clone"), showWarnings = FALSE, recursive = TRUE)
+```
+
+### Dataset 2
+```{r echo=FALSE, results='asis', warning=FALSE, message=FALSE, include=TRUE, fig.width=14, fig.height=10}
+tmpdf <- mhi.comparedf$Dataset2
+for (compare.group in unique(tmpdf$group)){
+  cat(sprintf("#### Group %s \n", compare.group))
+  printdf <- subset(tmpdf, tmpdf$group == compare.group)
+  # print( htmltools::tagList(datatable(printdf, extensions = 'Buttons',
+  #               filter = "top",
+  #               options = list(dom = 'Blfrtip',
+  #                              buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+  #                              lengthMenu = list(c(10,25,50,-1),
+  #                                                c(10,25,50,"All")),
+  #                              columnDefs = list(list(
+  #                                targets = "_all",
+  #                                render = JS(
+  #                                  "function(data, type, row, meta) {",
+  #                                  "return type === 'display' && data != null && data.length > 100 ?",
+  #                                  "'<span title=\"' + data + '\">' + data.substr(0, 100) + '...</span>' : data;",
+  #                                  "}")
+  #                              ))
+  #               ))))
+  cat("\n \n")
+  writexl::write_xlsx(printdf, file.path(path.to.save.output, "MHI_clone_vs_clone", sprintf("MHI_%s_%s.xlsx", compare.group, "Dataset2")))
+  print(sprintf("Table saved as %s", file.path("MHI_clone_vs_clone", sprintf("MHI_%s_%s.xlsx", compare.group, "Dataset2"))))
+}
+cat("\n \n")
+```
+
+### Dataset 3
+```{r echo=FALSE, results='asis', warning=FALSE, message=FALSE, include=TRUE, fig.width=14, fig.height=10}
+tmpdf <- mhi.comparedf$Dataset3
+for (compare.group in unique(tmpdf$group)){
+  # cat(sprintf("#### Group %s \n", compare.group))
+  printdf <- subset(tmpdf, tmpdf$group == compare.group)
+  # print( htmltools::tagList(datatable(printdf, extensions = 'Buttons',
+  #               filter = "top",
+  #               options = list(dom = 'Blfrtip',
+  #                              buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+  #                              lengthMenu = list(c(10,25,50,-1),
+  #                                                c(10,25,50,"All")),
+  #                              columnDefs = list(list(
+  #                                targets = "_all",
+  #                                render = JS(
+  #                                  "function(data, type, row, meta) {",
+  #                                  "return type === 'display' && data != null && data.length > 100 ?",
+  #                                  "'<span title=\"' + data + '\">' + data.substr(0, 100) + '...</span>' : data;",
+  #                                  "}")
+  #                              ))
+  #               ))))
+  cat("\n \n")
+  writexl::write_xlsx(printdf, file.path(path.to.save.output, "MHI_clone_vs_clone", sprintf("MHI_%s_%s.xlsx", compare.group, "Dataset3")))
+  print(sprintf("Table saved as %s", file.path("MHI_clone_vs_clone", sprintf("MHI_%s_%s.xlsx", compare.group, "Dataset3"))))
+}
+cat("\n \n")
+```
+
+### Dataset 4 m366 vs m367
+```{r echo=FALSE, results='asis', warning=FALSE, message=FALSE, include=TRUE, fig.width=14, fig.height=10}
+tmpdf <- mhi.comparedf$Dataset4_m366_vs_m367
+for (compare.group in unique(tmpdf$group)){
+  cat(sprintf("#### Group %s \n", compare.group))
+  printdf <- subset(tmpdf, tmpdf$group == compare.group)
+  # print( htmltools::tagList(datatable(printdf, extensions = 'Buttons',
+  #               filter = "top",
+  #               options = list(dom = 'Blfrtip',
+  #                              buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+  #                              lengthMenu = list(c(10,25,50,-1),
+  #                                                c(10,25,50,"All")),
+  #                              columnDefs = list(list(
+  #                                targets = "_all",
+  #                                render = JS(
+  #                                  "function(data, type, row, meta) {",
+  #                                  "return type === 'display' && data != null && data.length > 100 ?",
+  #                                  "'<span title=\"' + data + '\">' + data.substr(0, 100) + '...</span>' : data;",
+  #                                  "}")
+  #                              ))
+  #               ))))
+  cat("\n \n")
+  writexl::write_xlsx(printdf, file.path(path.to.save.output, "MHI_clone_vs_clone", sprintf("MHI_%s_%s.xlsx", compare.group, "Dataset4_m366_vs_m367")))
+  print(sprintf("Table saved as %s", file.path("MHI_clone_vs_clone", sprintf("MHI_%s_%s.xlsx", compare.group, "Dataset4_m366_vs_m367"))))
+}
+cat("\n \n")
+```
+
+### Dataset 4 m368 vs m369
+```{r echo=FALSE, results='asis', warning=FALSE, message=FALSE, include=TRUE, fig.width=14, fig.height=10}
+tmpdf <- mhi.comparedf$Dataset4_m368_vs_m369
+for (compare.group in unique(tmpdf$group)){
+  cat(sprintf("#### Group %s \n", compare.group))
+  printdf <- subset(tmpdf, tmpdf$group == compare.group)
+  # print( htmltools::tagList(datatable(printdf, extensions = 'Buttons',
+  #               filter = "top",
+  #               options = list(dom = 'Blfrtip',
+  #                              buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+  #                              lengthMenu = list(c(10,25,50,-1),
+  #                                                c(10,25,50,"All")),
+  #                              columnDefs = list(list(
+  #                                targets = "_all",
+  #                                render = JS(
+  #                                  "function(data, type, row, meta) {",
+  #                                  "return type === 'display' && data != null && data.length > 100 ?",
+  #                                  "'<span title=\"' + data + '\">' + data.substr(0, 100) + '...</span>' : data;",
+  #                                  "}")
+  #                              ))
+  #               ))))
+  cat("\n \n")
+  writexl::write_xlsx(printdf, file.path(path.to.save.output, "MHI_clone_vs_clone", sprintf("MHI_%s_%s.xlsx", compare.group, "Dataset4_m368_vs_m369")))
+  print(sprintf("Table saved as %s", file.path("MHI_clone_vs_clone", sprintf("MHI_%s_%s.xlsx", compare.group, "Dataset4_m368_vs_m369"))))
+}
+cat("\n \n")
+```
+
+## Combine MHI "same clone, sample vs sample" and "clone vs clone" 
+
+### Tables 
+Since tables in this section are too large, we do not display them in HTML file. Please find the saved .xlsx file in the One Drive folder. 
+
+**Save file names:** combine_MHI_sample_vs_sample_and_clone_vs_clone_**dataset name**.xlsx
+
+```{r echo=FALSE, results='asis', warning=FALSE, message=FALSE, include=TRUE, fig.width=14, fig.height=10}
+dir.create(file.path(path.to.save.output, "Combined_MHI"), showWarnings = FALSE, recursive = TRUE)
+all.combinedf <- hash()
+for (dataset.name in names(mhi.comparedf)){
+  compare.clonedf <- mhi.comparedf[[dataset.name]] %>% subset(select = c(MHI, group))
+  compare.sampledf <- mhi_samples[[dataset.name]] 
+  mhi.columns <- to_vec( for(item in colnames(compare.sampledf)) if(grepl("MHI_", item) == TRUE) item)
+  compare.sampledf <- compare.sampledf[, mhi.columns] %>% rownames_to_column("index") %>%
+    pivot_longer(!index, values_to = "MHI", names_to = "group") %>%
+    subset(select = -c(index, group)) 
+  compare.sampledf <- subset(compare.sampledf, is.na(MHI) == FALSE)
+  compare.sampledf$group <- "shared clones"
+  printdf <- rbind(compare.clonedf, compare.sampledf) %>% as.data.frame()
+  cat(sprintf("#### Dataset %s \n", dataset.name))
+  # print( htmltools::tagList(datatable(printdf, extensions = 'Buttons',
+  #               filter = "top",
+  #               options = list(dom = 'Blfrtip',
+  #                              buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+  #                              lengthMenu = list(c(10,25,50,-1),
+  #                                                c(10,25,50,"All")),
+  #                              columnDefs = list(list(
+  #                                targets = "_all",
+  #                                render = JS(
+  #                                  "function(data, type, row, meta) {",
+  #                                  "return type === 'display' && data != null && data.length > 100 ?",
+  #                                  "'<span title=\"' + data + '\">' + data.substr(0, 100) + '...</span>' : data;",
+  #                                  "}")
+  #                              ))
+  #               ))))
+  cat("\n \n")
+  all.combinedf[[dataset.name]] <- printdf
+  writexl::write_xlsx(printdf, file.path(path.to.save.output, "Combined_MHI", sprintf("combine_MHI_sample_vs_sample_and_clone_vs_clone_%s.xlsx", dataset.name)))
+  print(sprintf("Table saved as %s", file.path("Combined_MHI", sprintf("combine_MHI_sample_vs_sample_and_clone_vs_clone_%s.xlsx", dataset.name))))
+}
+cat("\n \n")
+```
+
+### Figures {.tabset}
+```{r echo=FALSE, results='asis', warning=FALSE, message=FALSE, include=TRUE, fig.width=14, fig.height=10}
+for (dataset.name in names(all.combinedf)){
+  cat(sprintf("#### Dataset %s \n", dataset.name))
+  tmpdf <- all.combinedf[[dataset.name]]
+  p <- tmpdf %>% ggplot(aes(x = group, y = MHI)) + geom_boxplot()
+  print(p)
+  cat("\n \n")
+}
+```
+
+# Final QC metrics after filtering out low-QC cells {.tabset}
+```{r echo=FALSE, results='asis', warning=FALSE, message=FALSE, include=TRUE, fig.width=14, fig.height=10}
+all.s.obj <- list(
+  Dataset1 = readRDS(file.path(dataset.path$Dataset1, "data_analysis/02_output/sobj_with_clusterRes_1.rds")),
+  Dataset2 = readRDS(file.path(dataset.path$Dataset2, "data_analysis/01_output/merged_all_second_exp_dataset.annotated.filteredCD45.integrated.rds")),
+  Dataset3 = readRDS(file.path(dataset.path$Dataset3, "1st_round/pct_mito_10_1/data_analysis/02_output/230215_Kopplin.seurat.obj.addedShannonEntropy.rds")),
+  Dataset4 = readRDS(file.path(dataset.path$Dataset4, "1st_round/pct_mito_10_1/data_analysis/01_output/230316_Kopplin.seurat.obj.removed.14_15_16.addedVDJ.integrated.rds"))
+)
+
+all.sumqcdf <- hash()
+
+for (dataset.name in names(all.s.obj)){
+  s.obj <- all.s.obj[[dataset.name]]
+  meta.data <- s.obj@meta.data
+
+  sumqcdf <- data.frame()
+  for (sample.id in unique(meta.data$name)){
+    subset.metadata <- subset(meta.data, meta.data$name == sample.id)
+    
+    tmpdf <- data.frame(Sample = c(sample.id))
+    tmpdf$min.nCount_RNA <- min(subset.metadata$nCount_RNA)
+    tmpdf$max.nCount_RNA <- max(subset.metadata$nCount_RNA)
+    tmpdf$mean.nCount_RNA <- mean(subset.metadata$nCount_RNA)
+    tmpdf$median.nCount_RNA <- median(subset.metadata$nCount_RNA)
+    
+    tmpdf$min.nFeature_RNA <- min(subset.metadata$nFeature_RNA)
+    tmpdf$max.nFeature_RNA <- max(subset.metadata$nFeature_RNA)
+    tmpdf$mean.nFeature_RNA <- mean(subset.metadata$nFeature_RNA)
+    tmpdf$median.nFeature_RNA <- median(subset.metadata$nFeature_RNA)
+    
+    tmpdf$min.percent.mt <- min(subset.metadata$percent.mt)
+    tmpdf$max.percent.mt <- max(subset.metadata$percent.mt)
+    tmpdf$mean.percent.mt <- mean(subset.metadata$percent.mt)
+    tmpdf$median.percent.mt <- median(subset.metadata$percent.mt)
+    
+    tmpdf$min.percent.ribo <- min(subset.metadata$percent.ribo)
+    tmpdf$max.percent.ribo <- max(subset.metadata$percent.ribo)
+    tmpdf$mean.percent.ribo <- mean(subset.metadata$percent.ribo)
+    tmpdf$median.percent.ribo <- median(subset.metadata$percent.ribo)
+    
+    tmpdf$min.log10GenesPerUMI <- min(subset.metadata$log10GenesPerUMI)
+    tmpdf$max.log10GenesPerUMI <- max(subset.metadata$log10GenesPerUMI)
+    tmpdf$mean.log10GenesPerUMI <- mean(subset.metadata$log10GenesPerUMI)
+    tmpdf$median.log10GenesPerUMI <- median(subset.metadata$log10GenesPerUMI)
+    
+    tmpdf$min.AmbientRNA <- min(subset.metadata$AmbientRNA)
+    tmpdf$max.AmbientRNA <- max(subset.metadata$AmbientRNA)
+    tmpdf$mean.AmbientRNA <- mean(subset.metadata$AmbientRNA)
+    tmpdf$median.AmbientRNA <- median(subset.metadata$AmbientRNA)
+    
+    tmpdf$num.Clones <- length(unique(subset.metadata$CTstrict))
+    tmpdf$num.Clusters <- length(unique(subset.metadata$seurat_clusters))
+    
+    sumqcdf <- rbind(sumqcdf, tmpdf)
+  }
+  all.sumqcdf[[dataset.name]] <- sumqcdf
+}
+
+for (name in names(all.sumqcdf)){
+  tmpdf <- all.sumqcdf[[name]]
+  cat(sprintf("## %s \n", name))
+  print( htmltools::tagList(datatable(tmpdf, extensions = 'Buttons',
+                filter = "top",
+                options = list(dom = 'Blfrtip',
+                               buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+                               lengthMenu = list(c(10,25,50,-1),
+                                                 c(10,25,50,"All")),
+                               columnDefs = list(list(
+                                 targets = "_all",
+                                 render = JS(
+                                   "function(data, type, row, meta) {",
+                                   "return type === 'display' && data != null && data.length > 100 ?",
+                                   "'<span title=\"' + data + '\">' + data.substr(0, 100) + '...</span>' : data;",
+                                   "}")
+                               ))
+                ))))
+  cat("\n \n")
+}
+```
+
+

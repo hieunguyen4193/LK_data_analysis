@@ -1,0 +1,272 @@
+---
+title: "VDJ data analysis 230316_Kopplin_Pabst, m366 vs m368"
+author:
+  - "trnguyen@ukaachen.de"
+date: "Last update on `r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    number_sections: true
+    df_print: paged
+    toc: true
+    toc_float:
+      toc_collapsed: false
+    toc_depth: 3
+    theme: lumen
+params:
+  PROJECT: NA
+  outdir: NA
+---
+  
+  
+```{css zoom-lib-src, echo = FALSE}
+script src = "https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"
+```
+
+```{js zoom-jquery, echo = FALSE}
+$(document).ready(function() {
+  $('body').prepend('<div class=\"zoomDiv\"><img src=\"\" class=\"zoomImg\"></div>');
+  // onClick function for all plots (img's)
+    $('img:not(.zoomImg)').click(function() {
+      $('.zoomImg').attr('src', $(this).attr('src')).css({width: '100%'});
+      $('.zoomDiv').css({opacity: '1', width: 'auto', border: '1px solid white', borderRadius: '5px', position: 'fixed', top: '50%', left: '50%', marginRight: '-50%', transform: 'translate(-50%, -50%)', boxShadow: '0px 0px 50px #888888', zIndex: '50', overflow: 'auto', maxHeight: '100%'});
+    });
+    // onClick function for zoomImg
+    $('img.zoomImg').click(function() {
+      $('.zoomDiv').css({opacity: '0', width: '0%'}); 
+    });
+  });
+```
+
+<style type="text/css">
+    div.datatables { height: auto !important;}
+</style>
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='hide', fig.height=10, fig.width=18}
+PROJECT <- "230316_Kopplin"
+outdir <- "/media/hieunguyen/HNSD_MBPro/CRC1382/outdir/LKopplin_OFFICIAL"
+
+path.to.main.src.project <- "/home/hieunguyen/CRC1382/src_2023/LKopplin/230316_Kopplin"
+source(file.path(path.to.main.src.project, "00_import_libraries.R"))
+source(file.path(path.to.main.src.project, "00_helper_functions.R"))
+
+path.to.main.input <- file.path(outdir, sprintf("%s/1st_round/pct_mito_10_1", PROJECT))
+path.to.main.output <- file.path(outdir, sprintf("%s/1st_round/pct_mito_10_1/data_analysis", PROJECT))
+
+path.to.01.output <- file.path(path.to.main.output, "01_output")
+path.to.02.output <- file.path(path.to.main.output, "02_output_m366_vs_m368")
+dir.create(path.to.02.output, showWarnings = FALSE, recursive = TRUE)
+
+s.obj <- readRDS(file.path(path.to.01.output, "230316_Kopplin.seurat.obj.removed.14_15_16.integrated.rds"))
+s.obj <- subset(s.obj, name %in% c("m366", "m368"))
+```
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='hide', fig.height=10, fig.width=18}
+DimPlot(object = s.obj, reduction = "INTE_UMAP", label = TRUE, label.box = FALSE, label.size = 8, split.by = "name", ncol = 2)
+```
+
+# VDJ data
+
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE}
+path.to.main.dir <- file.path(outdir, sprintf("%s", PROJECT))
+
+path.to.VDJ.output <- file.path(path.to.main.dir, "VDJ_output")
+
+all.vdj.files <- Sys.glob(file.path(path.to.VDJ.output, "annotated_contigs_clonaltype_*.csv"))
+all.vdj.info.df <- data.frame()
+for (file in all.vdj.files){
+  tmpdf <- read.csv(file) %>% subset(select = -c(X)) 
+  all.vdj.info.df <- rbind(all.vdj.info.df, tmpdf)
+}
+```
+
+## Full VDJ data tables {.tabset}
+```{r echo=FALSE, warning=FALSE, results='asis', include=FALSE}
+head(all.vdj.info.df) %>% create_dt()
+
+all.vdj <- hash()
+```
+
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE}
+for (sample.id in unique(all.vdj.info.df$sample)){
+  tmpdf <- subset(all.vdj.info.df, all.vdj.info.df$sample == sample.id)
+  all.vdj[[sample.id]] <- tmpdf
+  cat(paste("\n\n### sample: ", sample.id, "##\n"))
+  print( htmltools::tagList(datatable(tmpdf, extensions = 'Buttons',
+                filter = "top",
+                options = list(dom = 'Blfrtip',
+                               buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+                               lengthMenu = list(c(10,25,50,-1),
+                                                 c(10,25,50,"All")),
+                               columnDefs = list(list(
+                                 targets = "_all",
+                                 render = JS(
+                                   "function(data, type, row, meta) {",
+                                   "return type === 'display' && data != null && data.length > 100 ?",
+                                   "'<span title=\"' + data + '\">' + data.substr(0, 100) + '...</span>' : data;",
+                                   "}")
+                               ))
+                ))))
+  cat("\n \n")
+}
+```
+
+
+## Number of cells in each clone in each sample {.tabset}
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE, fig.width=15, fig.height=12}
+#### merge VDJ information to the main Seurat object
+meta.data <- s.obj@meta.data %>% rownames_to_column("barcode")
+meta.data <- merge(meta.data, all.vdj.info.df, by.x = "barcode", by.y = "barcode", all.x = TRUE)
+s.obj <- AddMetaData(object = s.obj, metadata = meta.data$CTaa, col.name = "CTaa")
+
+subset.s.obj <- hash()
+for (sample.id in unique(s.obj$name)){
+  cat(sprintf("### Sample: %s \n", sample.id))
+  subset.s.obj[[sample.id]] <- subset(s.obj, name == sample.id)  
+  cells.with.CTaa <- row.names(subset(subset.s.obj[[sample.id]]@meta.data, is.na(subset.s.obj[[sample.id]]@meta.data$CTaa) == FALSE))
+  p <- DimPlot(object = subset.s.obj[[sample.id]], reduction = "INTE_UMAP", cells.highlight = cells.with.CTaa, pt.size = 0.8, cols.highlight = "red") + ggtitle(sprintf("Sample: %s, # cells with clone: %s, Total # cells: %s , percentage = %s:", sample.id, length(cells.with.CTaa), length(colnames(subset.s.obj[[sample.id]])), round(100*length(cells.with.CTaa)/length(colnames(subset.s.obj[[sample.id]])), 3))) + theme(legend.position = "none")
+  print(p)
+  cat("\n \n")
+}
+
+
+```
+
+## Number of appearances of each clone in each sample
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE}
+all.clone.df <- data.frame(unique(all.vdj.info.df$CTaa))
+colnames(all.clone.df) <- c("clone")
+all.clone.df <- subset(all.clone.df, is.na(all.clone.df$clone) == FALSE)
+all.clone.df <- all.clone.df %>% rowwise %>% 
+  mutate(m366 = nrow(subset(subset.s.obj[["m366"]]@meta.data, subset.s.obj[["m366"]]@meta.data$CTaa == clone))) %>%
+  mutate(m368 = nrow(subset(subset.s.obj[["m368"]]@meta.data, subset.s.obj[["m368"]]@meta.data$CTaa == clone))) %>%
+  mutate(total = m366 + m368)
+all.clone.df %>% create_dt()
+```
+
+## Unique clones
+
+Clones with total occurrences >= 5
+
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE}
+unique.clones <- hash()
+
+unique.clones[["m366"]] <- subset(all.clone.df, all.clone.df$m366 != 0 & all.clone.df$m368 == 0)
+unique.clones[["m368"]] <- subset(all.clone.df, all.clone.df$m366 == 0 & all.clone.df$m368 != 0)
+```
+
+
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE, fig.width=20, fig.height=12}
+for (sample.id in names(unique.clones)){
+  cat(sprintf("### Sample %s {.tabset} \n", sample.id))
+  
+  list.of.clones <- unique.clones[[sample.id]] %>% subset(total >= 5)
+  split.list.of.clones <- split(list.of.clones$clone, ceiling(seq_along(list.of.clones$clone) / 6))
+  for (group in names(split.list.of.clones)){
+    cat(sprintf("#### Part %s \n", group))
+    p <- plot_a_list_of_clonal_types(s.obj = s.obj, list_of_clonal_types = split.list.of.clones[[group]], sample.id1 = "m366", sample.id2 = "m368")
+    print(p)
+    cat("\n \n")
+  }
+}
+
+```
+
+## Clones shared in 2 samples
+Clones with total occurrences >= 5
+
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE}
+shared2.clones <- hash()
+shared2.clones[["m366_m368"]] <- subset(all.clone.df, all.clone.df$m366 != 0 & all.clone.df$m368 != 0 )
+```
+
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE, fig.width=20, fig.height=12}
+for (sample.id in names(shared2.clones)){
+  cat(sprintf("### Sample %s {.tabset} \n", sample.id))
+  
+  list.of.clones <- shared2.clones[[sample.id]] %>% subset(total >= 5)
+  split.list.of.clones <- split(list.of.clones$clone, ceiling(seq_along(list.of.clones$clone) / 6))
+  for (group in names(split.list.of.clones)){
+    cat(sprintf("#### Part %s \n", group))
+    p <- plot_a_list_of_clonal_types(s.obj = s.obj, list_of_clonal_types = split.list.of.clones[[group]], sample.id1 = "m366", sample.id2 = "m368")
+    print(p)
+    cat("\n \n")
+  }
+}
+
+```
+
+
+
+## Shannon entropy calculation (cluster-based)
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+#####----------------------------------------------------------------------#####
+# Calculate SHANNON ENTROPY
+#####----------------------------------------------------------------------#####
+
+##### higher Shannon entropy --> more diverse
+calculate_shannon_entropy <- function(clone, s.obj){
+  N <- length(unique(s.obj$seurat_clusters))
+  count_clone_in_cluster <- table(subset(s.obj@meta.data, s.obj@meta.data$CTaa == clone) %>% 
+                                    subset(select = c(CTaa, seurat_clusters))) %>%  as.data.frame()
+  count_clone_in_cluster <- count_clone_in_cluster %>% rowwise %>% mutate(Prob = Freq / sum(count_clone_in_cluster$Freq)) %>%
+    subset(Prob != 0)
+  shannon_entropy <- -sum(count_clone_in_cluster$Prob * log2(count_clone_in_cluster$Prob))/log2(N)
+  return(shannon_entropy)
+}
+
+final.VDJ.summary <- data.frame()
+
+for (group in names(unique.clones)){
+  tmp <- unique.clones[[group]]
+  tmp[["status"]] <- "unique_in_1_sample"
+  final.VDJ.summary <- rbind(final.VDJ.summary, tmp)
+}
+
+for (group in names(shared2.clones)){
+  tmp <- shared2.clones[[group]]
+  tmp[["status"]] <- "shared_in_2_samples"
+  final.VDJ.summary <- rbind(final.VDJ.summary, tmp)
+}
+
+final.VDJ.summary <- as.data.frame(final.VDJ.summary)
+
+shannon.entropies <- unlist(lapply(final.VDJ.summary$clone, function(x){
+  return(calculate_shannon_entropy(clone = x, s.obj = s.obj))
+}))
+
+final.VDJ.summary[["Shannon.entropy"]] <- shannon.entropies
+```
+
+### Summary table 
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis'}
+final.VDJ.summary  %>% arrange(desc(total)) %>% create_dt()
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=15, fig.height=10}
+shannon.entropy.df <- final.VDJ.summary %>% subset(select = c(clone, Shannon.entropy))
+meta.data <- s.obj@meta.data
+
+cell.shannon.entropy <- unlist(lapply(meta.data$CTaa, function(x){
+  if (is.na(x) == FALSE){
+    return(as.numeric(subset(shannon.entropy.df, shannon.entropy.df$clone == x)$Shannon.entropy))  
+  } else {
+    return(NA)
+  }
+}))
+s.obj <- AddMetaData(object = s.obj, metadata = cell.shannon.entropy, col.name= "Shannon.entropy")
+
+FeaturePlot(subset(s.obj,Shannon.entropy != "NA"), reduction = "INTE_UMAP", features = c("Shannon.entropy"))
+```
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis'}
+##### SAVE OBJECTS 
+saveRDS(object = s.obj, file.path(path.to.02.output, "230316_Kopplin.m366_m368.seurat.obj.addedShannonEntropy.rds"))
+write.csv(final.VDJ.summary, file.path(path.to.02.output, "final_VDJ_summary.csv"))
+```
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis'}
+```

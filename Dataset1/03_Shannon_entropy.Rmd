@@ -1,0 +1,502 @@
+---
+title: "Cell sampling and Shannon entropy for the 1st dataset"
+author:
+  - "trnguyen@ukaachen.de"
+date: "Last update on `r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    keep_md: yes
+    df_print: paged
+    toc: true
+    toc_float:
+      toc_collapsed: false
+    toc_depth: 3
+    number_sections: false
+    theme: lumen
+---
+
+
+
+```{css zoom-lib-src, echo = FALSE}
+script src = "https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"
+```
+
+```{js zoom-jquery, echo = FALSE}
+ $(document).ready(function() {
+    $('body').prepend('<div class=\"zoomDiv\"><img src=\"\" class=\"zoomImg\"></div>');
+    // onClick function for all plots (img's)
+    $('img:not(.zoomImg)').click(function() {
+      $('.zoomImg').attr('src', $(this).attr('src')).css({width: '100%'});
+      $('.zoomDiv').css({opacity: '1', width: 'auto', border: '1px solid white', borderRadius: '5px', position: 'fixed', top: '50%', left: '50%', marginRight: '-50%', transform: 'translate(-50%, -50%)', boxShadow: '0px 0px 50px #888888', zIndex: '50', overflow: 'auto', maxHeight: '100%'});
+    });
+    // onClick function for zoomImg
+    $('img.zoomImg').click(function() {
+      $('.zoomDiv').css({opacity: '0', width: '0%'}); 
+    });
+  });
+```
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='hide'}
+##### PREPARATION
+##### clean up #####
+# gc()
+# rm(list = ls())
+
+path.to.pipeline.src <- "/home/hieunguyen/CRC1382/src_2023/src_pipeline"
+source(file.path(path.to.pipeline.src, "scRNA_GEX_pipeline", "processes_src", "import_libraries.R"))
+source(file.path(path.to.pipeline.src, "scRNA_GEX_pipeline", "processes_src", "helper_functions.R"))
+
+path.to.project.src <- "/home/hieunguyen/CRC1382/src_2023/LKopplin/20231101_OFFICIAL/Dataset1"
+source(file.path(path.to.project.src, "helper_functions.R"))
+
+#####----------------------------------------------------------------------#####
+# CONFIGURATIONS 
+#####----------------------------------------------------------------------#####
+
+chosen.seed <- 42
+num.dim.integration <- 25 
+num.PCA <- 25
+num.dim.cluster <- 25
+num.PC.used.in.Clustering <- 25
+
+source(file.path(path.to.pipeline.src, "scRNA_GEX_pipeline", "processes_src", "s8_integration_and_clustering.R"))
+
+PROJECT <- "1stExp_Kopplin"
+outdir <- "/media/hieunguyen/HNSD_MBPro/CRC1382/outdir/LKopplin_OFFICIAL"
+
+path.to.main.output <- file.path(outdir, PROJECT, "data_analysis")
+path.to.01.output <- file.path(path.to.main.output, "01_output")
+path.to.02.output <- file.path(path.to.main.output, "02_output")
+path.to.03.output <- file.path(path.to.main.output, "03_output")
+dir.create(path.to.03.output, showWarnings = FALSE, recursive = TRUE)
+
+path.to.save.final.clonedf <- file.path(outdir, "summary_clone_dfs")
+dir.create(path.to.save.final.clonedf, showWarnings = FALSE, recursive = TRUE)
+
+cluster.resolution <- 1
+s.obj <- readRDS(file.path(path.to.02.output, sprintf("sobj_with_clusterRes_%s.rds", cluster.resolution)))
+
+
+if ("svglite" %in% installed.packages() == FALSE){
+  install.packages("svglite")
+}
+
+s.obj.1st.GFP <- subset(s.obj, seurat_clusters %in% c(3, 5, 6, 8))
+s.obj.1st.CD45 <- subset(s.obj, seurat_clusters %in% c(3, 5, 6, 8) == FALSE)
+
+dir.create(file.path(path.to.03.output, "validation_CD45_ShannonEntropy"), showWarnings = FALSE, recursive = TRUE)
+dir.create(file.path(path.to.03.output, "validation_GFP_ShannonEntropy"), showWarnings = FALSE, recursive = TRUE)
+```
+
+# UMAP
+
+## GFP samples
+
+```{r dataset1_UMAP_GFP_samples, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.height=10, fig.width=14, dpi=300, dev='svg'}
+DimPlot(object = s.obj.1st.GFP, reduction = "RNA_UMAP", label = TRUE, label.box = TRUE, repel = TRUE, pt.size = 1, label.size = 12) +
+  ggtitle("") 
+```
+
+## CD45 samples
+```{r dataset1_UMAP_CD45_samples, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.height=10, fig.width=14, dpi=300, dev='svg'}
+DimPlot(object = s.obj.1st.CD45, reduction = "RNA_UMAP", label = TRUE, label.box = TRUE, repel = TRUE, pt.size = 1, label.size = 12) +
+  ggtitle("") 
+```
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='hide'}
+##### summary clone information
+clone.summary.gfp.modified <- readxl::read_excel(file.path(path.to.02.output, "final_summary_clones_1stDataset_GFP_clusterRes_1.modified.xlsx"))
+clone.summary.gfp.modified.raw <- readxl::read_excel(file.path(path.to.02.output, "final_summary_clones_1stDataset_GFP.raw.xlsx")) 
+clone.summary.gfp.modified.raw <- clone.summary.gfp.modified.raw %>%
+  rowwise() %>%
+  mutate(total = GFPexp1_m1 + GFPexp1_m2)
+clone.summary.gfp <- readxl::read_excel(file.path(path.to.02.output, "final_summary_clones_1stDataset_GFP.xlsx"))
+
+clone.summary.cd45.modified <- readxl::read_excel(file.path(path.to.02.output, "final_summary_clones_1stDataset_CD45_clusterRes_1.modified.xlsx"))
+clone.summary.cd45.modified.raw <- readxl::read_excel(file.path(path.to.02.output, "final_summary_clones_1stDataset_CD45.raw.xlsx")) 
+
+clone.summary.cd45.modified.raw <- clone.summary.cd45.modified.raw %>%
+  rowwise() %>%
+  mutate(total = CD45exp1_m1 + CD45exp1_m2)
+
+clone.summary.cd45 <- readxl::read_excel(file.path(path.to.02.output, "final_summary_clones_1stDataset_CD45.xlsx"))
+```
+
+
+# Sampling cells and calculate Shannon entropy, GFP samples
+
+## Boxplot: All Shannon entropies
+
+```{r dataset1_all_read_clone_shannon_GFP, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.height=10, fig.width=14, dpi=300, dev='svg'}
+all.shannon.entropy <- subset(clone.summary.gfp.modified, select = c(CTaa, Shannon.entropy))
+all.shannon.entropy %>% ggplot(aes(y = Shannon.entropy)) + geom_boxplot() 
+
+```
+
+## Boxplot: Comparson between real clones and sampled clones Shannon entropies {.tabset}
+
+```{r dataset1_sampling_shannon_GFP, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.height=10, fig.width=14, dpi=300, dev='svg'}
+all.clone.sizes <- sort(unique(clone.summary.gfp.modified$total))
+
+##### Helper function
+calculate_shannon_entropy_sampling_cells <- function(list_of_cells, s.obj){
+  N <- length(unique(s.obj$seurat_clusters))
+  count_clone_in_cluster <- table(subset(s.obj@meta.data, row.names(s.obj@meta.data) %in% list_of_cells) %>% 
+                                    subset(select = c(seurat_clusters))) %>%  as.data.frame()
+  count_clone_in_cluster <- count_clone_in_cluster %>% rowwise %>% mutate(Prob = Freq / sum(count_clone_in_cluster$Freq)) %>%
+    subset(Prob != 0)
+  shannon_entropy <- -sum(count_clone_in_cluster$Prob * log2(count_clone_in_cluster$Prob))/log2(N)
+  return(shannon_entropy)
+}
+
+for (num.sampling.cells in all.clone.sizes){
+  if (file.exists(file.path(path.to.03.output, "validation_GFP_ShannonEntropy", sprintf("validation_Shannon_entropy_sampling_%s.GFP.xlsx", num.sampling.cells))) == FALSE){
+    all.cells <- colnames(s.obj.1st.GFP)
+    all.sampling.entropies <- c()
+      
+    for (count in seq(1, 1000)){
+      sampling.cells <- sample(all.cells, num.sampling.cells)
+      tmp.sampling.shannon.entropy <- calculate_shannon_entropy_sampling_cells(sampling.cells, s.obj.1st.GFP)
+      all.sampling.entropies <- c(all.sampling.entropies, tmp.sampling.shannon.entropy)
+    }
+      
+    samplingdf <- data.frame(data = all.sampling.entropies)
+    colnames(samplingdf) <- c("Shannon.entropy")
+    samplingdf$CTaa <- to_vec( for (item in seq(1, 1000)) sprintf("sampling_%s", item))
+    samplingdf <- samplingdf[c("CTaa", "Shannon.entropy")]
+    samplingdf$case <- "Sampling"
+      
+    all.shannon.entropy$case <- "real_clone"
+      
+    validationdf <- rbind(all.shannon.entropy, samplingdf)
+    
+    writexl::write_xlsx(validationdf, file.path(path.to.03.output, "validation_GFP_ShannonEntropy", sprintf("validation_Shannon_entropy_sampling_%s.GFP.xlsx", num.sampling.cells)))  
+  } else {
+    validationdf <- readxl::read_xlsx(file.path(path.to.03.output, "validation_GFP_ShannonEntropy", sprintf("validation_Shannon_entropy_sampling_%s.GFP.xlsx", num.sampling.cells)))
+    p <- validationdf %>% ggplot(aes(x = case, y = Shannon.entropy)) + geom_boxplot() +
+    ggtitle(sprintf("Shannon entropy: Real clone vs sampling %s cells", num.sampling.cells))
+    cat(sprintf("### Sampling %s cells \n", num.sampling.cells))
+    print(p)
+    cat("\n \n")
+  }
+}
+```
+
+
+## Double y-axis plot
+```{r table_gfp, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.height=10, fig.width=14, dpi=300, dev='svg'}
+clone.summary.gfp.modified %>% create_dt()
+```
+
+### Clones unique in 1 sample
+
+
+```{r dataset1_double_y_clone_in_unique_1_sample_GFP, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.height=10, fig.width=14, dpi=300, dev='svg'}
+coeff <- 200
+p <- subset(clone.summary.gfp.modified, clone.summary.gfp.modified$Status == "unique_in_1_sample") %>% 
+  ggplot(aes(x = reorder(CTaa, -total))) + 
+  geom_point(aes(y = Shannon.entropy)) +  ylim(0, 1) + 
+  geom_bar(aes(y = total/coeff), stat = "identity") +  
+  theme(axis.text.x = element_blank()) + xlab("Clone") +
+  scale_y_continuous(
+    name = "Shannon entropy",
+    sec.axis = sec_axis(~.*coeff, name="Number of cells") 
+  ) 
+p
+```
+
+### Clones shared in 2 sample
+```{r dataset1_double_y_clone_in_2_samples_GFP, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.height=10, fig.width=14, dpi=300, dev='svg'}
+coeff <- 200
+p <- subset(clone.summary.gfp.modified, clone.summary.gfp.modified$Status == "in_2_samples") %>% 
+  ggplot(aes(x = reorder(CTaa, -total))) + 
+  geom_point(aes(y = Shannon.entropy)) +  ylim(0, 1) + 
+  geom_bar(aes(y = total/coeff), stat = "identity") +  
+  theme(axis.text.x = element_blank()) + xlab("Clone") +
+  scale_y_continuous(
+    name = "Shannon entropy",
+    sec.axis = sec_axis(~.*coeff, name="Number of cells") 
+  ) 
+
+p
+```
+
+
+## New Shannon entropy plot
+```{r echo=FALSE, warning=FALSE, include=FALSE, fig.height=10, fig.width=14, dpi=300, dev='svg'}
+meta.data <- s.obj.1st.GFP@meta.data
+
+get_shannon_entropy <- function(x, clone.summary){
+  if (nrow( subset(clone.summary, clone.summary$CTaa == x) ) != 0){
+    return(subset( clone.summary, clone.summary$CTaa == x )$Shannon.entropy)
+  } else {
+    return(NA)
+  }
+}
+
+colnames(clone.summary.gfp.modified.raw) <- c("Clone", "Status", "GFPexp1_m1", "GFPexp1_m2", "total.raw" )
+meta.data <- meta.data %>% rowwise() %>% 
+  mutate(Shannon.entropy = get_shannon_entropy(CTaa, clone.summary.gfp.modified)) %>% 
+  mutate(total = ifelse(is.na(CTaa), NA, subset(clone.summary.gfp.modified.raw, clone.summary.gfp.modified.raw$Clone == CTaa)$total.raw))
+  
+s.obj.1st.GFP <- AddMetaData(object = s.obj.1st.GFP, metadata = meta.data$Shannon.entropy, col.name = "Shannon.entropy")
+s.obj.1st.GFP <- AddMetaData(object = s.obj.1st.GFP, metadata = meta.data$total, col.name = "total")
+
+```
+
+### Clones >= 10 cells, Shannon entropy on UMAP
+
+Clones < 10 cells are displayed in light grey color. 
+
+```{r dataset1_shannon_GFP_samples, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.height=10, fig.width=14, dpi=300, dev='svg'}
+FeaturePlot(object = s.obj.1st.GFP, reduction = "RNA_UMAP", features = c("Shannon.entropy"), pt.size = 1) + scale_color_gradient(low = "#FFFF00", high = "#FF0000", na.value = "lightgray") 
+```
+
+### Clones < 10 cells, Clone size on UMAP
+Display clone size of all clones < 10 cells on UMAP. 
+
+```{r dataset1_clonesize_lt10_GFP_samples, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.height=10, fig.width=14, dpi=300, dev='svg'}
+meta.data <- s.obj.1st.GFP@meta.data %>% rownames_to_column("barcode") %>% subset(select = c(barcode, CTaa, total)) %>%
+  rowwise() %>% mutate(total.lt10 = ifelse(CTaa %in% clone.summary.gfp.modified$CTaa == FALSE, total, NA)) %>% column_to_rownames("barcode")
+
+meta.data <- meta.data[row.names(s.obj.1st.GFP@meta.data), ]
+
+s.obj.1st.GFP <- AddMetaData(object = s.obj.1st.GFP, metadata = meta.data$total.lt10, col.name = "total.lt10")
+FeaturePlot(object = s.obj.1st.GFP, 
+            reduction = "RNA_UMAP", features = c("total.lt10"), pt.size = 1) + scale_color_gradient(low = "#FFFF00", high = "#008b00", na.value = "lightgray") + ggtitle("")
+```
+
+### Clones >= 10 cells, Clone size on UMAP
+Display clone size of all clones >= 10 cells on UMAP. 
+
+```{r dataset1_clonesize_gt10_GFP_samples, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.height=10, fig.width=14, dpi=300, dev='svg'}
+meta.data <- s.obj.1st.GFP@meta.data %>% rownames_to_column("barcode") %>% subset(select = c(barcode, CTaa, total)) %>%
+  rowwise() %>% mutate(total.gt10 = ifelse(CTaa %in% clone.summary.gfp.modified$CTaa == TRUE, total, NA)) %>% column_to_rownames("barcode")
+
+meta.data <- meta.data[row.names(s.obj.1st.GFP@meta.data), ]
+
+s.obj.1st.GFP <- AddMetaData(object = s.obj.1st.GFP, metadata = meta.data$total.gt10, col.name = "total.gt10")
+FeaturePlot(object = s.obj.1st.GFP, 
+            reduction = "RNA_UMAP", features = c("total.gt10"), pt.size = 1) + scale_color_gradient(low = "#FFFF00", high = "#008b00", na.value = "lightgray") + ggtitle("")
+```
+
+### All cells. Clone size on UMAP
+Display clone size of all clones >= 10 cells on UMAP. 
+
+```{r dataset1_clonesize_all_GFP_samples, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.height=10, fig.width=14, dpi=300, dev='svg'}
+FeaturePlot(object = s.obj.1st.GFP, 
+            reduction = "RNA_UMAP", features = c("total"), pt.size = 1) + scale_color_gradient(low = "#FFFF00", high = "#008b00", na.value = "lightgray") + ggtitle("")
+```
+
+### All cells. Clone size on UMAP, log
+Display clone size of all clones >= 10 cells on UMAP. 
+
+```{r dataset1_clonesize_all_GFP_samples_logScale, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.height=10, fig.width=14, dpi=300, dev='svg'}
+s.obj.1st.GFP$log.total <- log10(s.obj.1st.GFP$total)
+FeaturePlot(object = s.obj.1st.GFP, 
+            reduction = "RNA_UMAP", features = c("log.total"), pt.size = 1) + scale_color_gradient(low = "#FFFF00", high = "#008b00", na.value = "lightgray") + ggtitle("")
+```
+
+# Sampling cells and calculate Shannon entropy, CD45 samples 
+
+## Boxplot: All Shannon entropies
+
+```{r dataset1_all_read_clone_shannon_CD45, echo=FALSE, warning=FALSE, message=FALSE, results='asis'}
+all.shannon.entropy <- subset(clone.summary.cd45.modified, select = c(CTaa, Shannon.entropy))
+all.shannon.entropy %>% ggplot(aes(y = Shannon.entropy)) + geom_boxplot() 
+
+```
+
+## Boxplot: Comparson between real clones and sampled clones Shannon entropies {.tabset}
+
+```{r dataset1_sampling_shannon_CD45, echo=FALSE, warning=FALSE, message=FALSE, results='asis'}
+all.clone.sizes <- sort(unique(clone.summary.cd45.modified$total))
+
+##### Helper function
+calculate_shannon_entropy_sampling_cells <- function(list_of_cells, s.obj){
+  N <- length(unique(s.obj$seurat_clusters))
+  count_clone_in_cluster <- table(subset(s.obj@meta.data, row.names(s.obj@meta.data) %in% list_of_cells) %>% 
+                                    subset(select = c(seurat_clusters))) %>%  as.data.frame()
+  count_clone_in_cluster <- count_clone_in_cluster %>% rowwise %>% mutate(Prob = Freq / sum(count_clone_in_cluster$Freq)) %>%
+    subset(Prob != 0)
+  shannon_entropy <- -sum(count_clone_in_cluster$Prob * log2(count_clone_in_cluster$Prob))/log2(N)
+  return(shannon_entropy)
+}
+for (num.sampling.cells in all.clone.sizes){
+  if (file.exists(file.path(path.to.03.output, "validation_CD45_ShannonEntropy", sprintf("validation_Shannon_entropy_sampling_%s.CD45.xlsx", num.sampling.cells))) == FALSE){
+      all.cells <- colnames(s.obj.1st.CD45)
+      all.sampling.entropies <- c()
+      
+      for (count in seq(1, 1000)){
+        sampling.cells <- sample(all.cells, num.sampling.cells)
+        tmp.sampling.shannon.entropy <- calculate_shannon_entropy_sampling_cells(sampling.cells, s.obj.1st.CD45)
+        all.sampling.entropies <- c(all.sampling.entropies, tmp.sampling.shannon.entropy)
+      }
+      
+      samplingdf <- data.frame(data = all.sampling.entropies)
+      colnames(samplingdf) <- c("Shannon.entropy")
+      samplingdf$CTaa <- to_vec( for (item in seq(1, 1000)) sprintf("sampling_%s", item))
+      samplingdf <- samplingdf[c("CTaa", "Shannon.entropy")]
+      samplingdf$case <- "Sampling"
+      
+      all.shannon.entropy$case <- "real_clone"
+      
+      validationdf <- rbind(all.shannon.entropy, samplingdf)
+      
+      writexl::write_xlsx(validationdf, file.path(path.to.03.output, "validation_CD45_ShannonEntropy", sprintf("validation_Shannon_entropy_sampling_%s.CD45.xlsx", num.sampling.cells)))    
+  } else {
+    validationdf <- readxl::read_xlsx(file.path(path.to.03.output, "validation_CD45_ShannonEntropy", sprintf("validation_Shannon_entropy_sampling_%s.CD45.xlsx", num.sampling.cells)))
+    p <- validationdf %>% ggplot(aes(x = case, y = Shannon.entropy)) + geom_boxplot() +
+        ggtitle(sprintf("Shannon entropy: Real clone vs sampling %s cells", num.sampling.cells))
+    cat(sprintf("### Sampling %s cells \n", num.sampling.cells))
+    print(p)
+    cat("\n \n")
+  }
+}
+```
+
+
+## Double y-axis plot
+```{r table_cd45, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.height=10, fig.width=14, dpi=300, dev='svg'}
+clone.summary.cd45.modified %>% create_dt()
+```
+
+### Clones unique in 1 sample
+```{r dataset1_double_y_clone_in_unique_1_sample_CD45, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.height=10, fig.width=14, dpi=300, dev='svg'}
+coeff <- 500
+p <- subset(clone.summary.cd45.modified, clone.summary.cd45.modified$Status == "unique_in_1_sample") %>% 
+  ggplot(aes(x = reorder(CTaa, -total))) + 
+  geom_point(aes(y = Shannon.entropy)) +  ylim(0, 1) + 
+  geom_bar(aes(y = total/coeff), stat = "identity") +  
+  theme(axis.text.x = element_blank()) + xlab("Clone") +
+  scale_y_continuous(
+    name = "Shannon entropy",
+    sec.axis = sec_axis(~.*coeff, name="Number of cells") 
+  ) 
+p
+```
+
+### Clones shared in 2 sample
+```{r dataset1_double_y_clone_in_2_samples_CD45, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.height=10, fig.width=14, dpi=300, dev='svg'}
+coeff <- 500
+p <- subset(clone.summary.cd45.modified, clone.summary.cd45.modified$Status == "in_2_samples") %>% 
+  ggplot(aes(x = reorder(CTaa, -total))) + 
+  geom_point(aes(y = Shannon.entropy)) +  ylim(0, 1) + 
+  geom_bar(aes(y = total/coeff), stat = "identity") +  
+  theme(axis.text.x = element_blank()) + xlab("Clone") +
+  scale_y_continuous(
+    name = "Shannon entropy",
+    sec.axis = sec_axis(~.*coeff, name="Number of cells") 
+  )
+p
+```
+
+## New Shannon entropy plot
+
+## New Shannon entropy plot
+```{r echo=FALSE, warning=FALSE, include=FALSE}
+meta.data <- s.obj.1st.CD45@meta.data
+
+get_shannon_entropy <- function(x, clone.summary){
+  if (nrow( subset(clone.summary, clone.summary$CTaa == x) ) != 0){
+    return(subset( clone.summary, clone.summary$CTaa == x )$Shannon.entropy)
+  } else {
+    return(NA)
+  }
+}
+
+colnames(clone.summary.cd45.modified.raw) <- c("Clone", "Status", "CD45exp1_m1", "CD45exp1_m2", "total.raw" )
+meta.data <- meta.data %>% rowwise() %>% 
+  mutate(Shannon.entropy = get_shannon_entropy(CTaa, clone.summary.cd45.modified)) %>% 
+  mutate(total = ifelse(is.na(CTaa), NA, subset(clone.summary.cd45.modified.raw, clone.summary.cd45.modified.raw$Clone == CTaa)$total.raw))
+
+s.obj.1st.CD45 <- AddMetaData(object = s.obj.1st.CD45, metadata = meta.data$Shannon.entropy, col.name = "Shannon.entropy")
+s.obj.1st.CD45 <- AddMetaData(object = s.obj.1st.CD45, metadata = meta.data$total, col.name = "total")
+
+```
+
+### Clones >= 10 cells, Shannon entropy on UMAP
+
+Clones < 10 cells are displayed in light grey color. 
+
+```{r dataset1_shannon_CD45_samples, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.height=10, fig.width=15, dev='svg'}
+FeaturePlot(object = s.obj.1st.CD45, reduction = "RNA_UMAP", features = c("Shannon.entropy"), pt.size = 1) + scale_color_gradient(low = "#FFFF00", high = "#FF0000", na.value = "lightgray") + ggtitle("")
+```
+
+### Clones < 10 cells, Clone size on UMAP
+Display clone size of all clones < 10 cells on UMAP. 
+
+```{r dataset1_clonesize_lt10_CD45_samples, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.height=10, fig.width=15, dev='svg'}
+meta.data <- s.obj.1st.CD45@meta.data %>% rownames_to_column("barcode") %>% subset(select = c(barcode, CTaa, total)) %>%
+  rowwise() %>% mutate(total.lt10 = ifelse(CTaa %in% clone.summary.cd45.modified$CTaa == FALSE, total, NA)) %>% column_to_rownames("barcode")
+
+meta.data <- meta.data[row.names(s.obj.1st.CD45@meta.data), ]
+
+s.obj.1st.CD45 <- AddMetaData(object = s.obj.1st.CD45, metadata = meta.data$total.lt10, col.name = "total.lt10")
+FeaturePlot(object = s.obj.1st.CD45, 
+            reduction = "RNA_UMAP", features = c("total.lt10"), pt.size = 1) + scale_color_gradient(low = "#FFFF00", high = "#008b00", na.value = "lightgray") + ggtitle("")
+```
+
+### Clones >= 10 cells, Clone size on UMAP
+Display clone size of all clones >= 10 cells on UMAP. 
+
+```{r dataset1_clonesize_gt10_CD45_samples, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.height=10, fig.width=15, dev='svg'}
+meta.data <- s.obj.1st.CD45@meta.data %>% rownames_to_column("barcode") %>% subset(select = c(barcode, CTaa, total)) %>%
+  rowwise() %>% mutate(total.gt10 = ifelse(CTaa %in% clone.summary.cd45.modified$CTaa == TRUE, total, NA)) %>% column_to_rownames("barcode")
+
+meta.data <- meta.data[row.names(s.obj.1st.CD45@meta.data), ]
+
+s.obj.1st.CD45 <- AddMetaData(object = s.obj.1st.CD45, metadata = meta.data$total.gt10, col.name = "total.gt10")
+FeaturePlot(object = s.obj.1st.CD45, 
+            reduction = "RNA_UMAP", features = c("total.gt10"), pt.size = 1) + scale_color_gradient(low = "#FFFF00", high = "#008b00", na.value = "lightgray") + ggtitle("")
+```
+
+### All cells, Clone size on UMAP
+
+```{r dataset1_clonesize_all_CD45_samples, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.height=10, fig.width=15, dev='svg'}
+FeaturePlot(object = s.obj.1st.CD45, 
+            reduction = "RNA_UMAP", features = c("total"), pt.size = 1) + scale_color_gradient(low = "#FFFF00", high = "#008b00", na.value = "lightgray") + ggtitle("")
+```
+
+
+### All cells, Clone size on UMAP, log
+
+```{r dataset1_clonesize_all_CD45_samples_logScale, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.height=10, fig.width=15, dev='svg'}
+s.obj.1st.CD45$log.total <- log10(s.obj.1st.CD45$total)
+FeaturePlot(object = s.obj.1st.CD45, 
+            reduction = "RNA_UMAP", features = c("log.total"), pt.size = 1) + scale_color_gradient(low = "#FFFF00", high = "#008b00", na.value = "lightgray") + ggtitle("")
+```
+
+# Export final summary table of clones
+```{r}
+final.clonedf.CD45 <- clone.summary.cd45.modified.raw 
+colnames(final.clonedf.CD45) <- c("Clone", "Status", "CD45exp1_m1", "CD45exp1_m2", "total")
+final.clonedf.CD45 <- final.clonedf.CD45 %>% rowwise() %>%
+  mutate(Shannon.entropy = ifelse( nrow(subset(clone.summary.cd45.modified, clone.summary.cd45.modified$CTaa == Clone)) != 0,
+                                   subset(clone.summary.cd45.modified, clone.summary.cd45.modified$CTaa == Clone)$Shannon.entropy, NA)) %>%
+  arrange(desc(total))
+
+final.clonedf.GFP <- clone.summary.gfp.modified.raw 
+colnames(final.clonedf.GFP) <- c("Clone", "Status", "GFPexp1_m1", "GFPexp1_m2", "total")
+final.clonedf.GFP <- final.clonedf.GFP %>% rowwise() %>%
+  mutate(Shannon.entropy = ifelse( nrow(subset(clone.summary.gfp.modified, clone.summary.gfp.modified$CTaa == Clone)) != 0,
+                                   subset(clone.summary.gfp.modified, clone.summary.gfp.modified$CTaa == Clone)$Shannon.entropy, NA)) %>%
+  arrange(desc(total))
+
+writexl::write_xlsx(final.clonedf.GFP, file.path(path.to.save.final.clonedf, "Dataset1_GFP.xlsx"))
+writexl::write_xlsx(final.clonedf.CD45, file.path(path.to.save.final.clonedf, "Dataset1_CD45.xlsx"))
+```
+
+## GFP
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.height=10, fig.width=15}
+final.clonedf.GFP %>% create_dt()
+```
+
+## CD45
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.height=10, fig.width=15}
+final.clonedf.CD45 %>% create_dt()
+```
+
+

@@ -1,0 +1,340 @@
+---
+title: "GEX data analysis for the second dataset"
+author:
+  - "trnguyen@ukaachen.de"
+date: "Last update on `r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    keep_md: no
+    df_print: paged
+    toc: true
+    toc_float:
+      toc_collapsed: false
+    toc_depth: 3
+    number_sections: false
+    theme: lumen
+---
+
+
+
+```{css zoom-lib-src, echo = FALSE}
+script src = "https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"
+```
+
+```{js zoom-jquery, echo = FALSE}
+ $(document).ready(function() {
+    $('body').prepend('<div class=\"zoomDiv\"><img src=\"\" class=\"zoomImg\"></div>');
+    // onClick function for all plots (img's)
+    $('img:not(.zoomImg)').click(function() {
+      $('.zoomImg').attr('src', $(this).attr('src')).css({width: '100%'});
+      $('.zoomDiv').css({opacity: '1', width: 'auto', border: '1px solid white', borderRadius: '5px', position: 'fixed', top: '50%', left: '50%', marginRight: '-50%', transform: 'translate(-50%, -50%)', boxShadow: '0px 0px 50px #888888', zIndex: '50', overflow: 'auto', maxHeight: '100%'});
+    });
+    // onClick function for zoomImg
+    $('img.zoomImg').click(function() {
+      $('.zoomDiv').css({opacity: '0', width: '0%'}); 
+    });
+  });
+```
+
+<style type="text/css">
+    div.datatables { height: auto !important;}
+</style>
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='hide'}
+#####----------------------------------------------------------------------#####
+#
+# 06: Increase higher resolution for the clustering of the first dataset
+#
+# trnguyen@ukaachen.de
+#####----------------------------------------------------------------------#####
+
+##### clean up #####
+# gc()
+# rm(list = ls())
+
+path.to.pipeline.src <- "/home/hieunguyen/CRC1382/src_2023/src_pipeline"
+source(file.path(path.to.pipeline.src, "scRNA_GEX_pipeline", "processes_src", "import_libraries.R"))
+source(file.path(path.to.pipeline.src, "scRNA_GEX_pipeline", "processes_src", "helper_functions.R"))
+
+path.to.project.src <- "/home/hieunguyen/CRC1382/src_2023/LKopplin/20231101_OFFICIAL/Dataset2"
+source(file.path(path.to.project.src, "helper_functions.R"))
+
+#####----------------------------------------------------------------------#####
+# CONFIGURATIONS 
+#####----------------------------------------------------------------------#####
+
+chosen.seed <- 42
+num.dim.integration <- 25 
+num.PCA <- 25
+num.dim.cluster <- 25
+num.PC.used.in.Clustering <- 25
+
+source(file.path(path.to.pipeline.src, "scRNA_GEX_pipeline", "processes_src", "s8_integration_and_clustering.R"))
+
+PROJECT <- "211227_Kopplin"
+outdir <- "/media/hieunguyen/HNSD_MBPro/CRC1382/outdir/LKopplin_OFFICIAL"
+
+path.to.main.output <- file.path(outdir, PROJECT, "data_analysis")
+path.to.01.output <- file.path(path.to.main.output, "01_output")
+path.to.02.output <- file.path(path.to.main.output, "02_output")
+dir.create(path.to.02.output, showWarnings = FALSE, recursive = TRUE)
+
+s.obj <- readRDS(file.path(path.to.01.output, "merged_all_second_exp_dataset.annotated.filteredCD45.integrated.rds"))
+
+if ("svglite" %in% installed.packages() == FALSE){
+  install.packages("svglite")
+}
+```
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis'}
+label <- TRUE
+label.box <- TRUE
+label.color <- "blue"
+label.size <- 8
+repel <- TRUE 
+pt.size <- 0.5
+fig.width <- 14
+fig.height <- 10
+cols <- c("lightgray", "darkblue")
+
+print(sprintf("Label on UMAP: %s", label))
+print(sprintf("Label box on UMAP: %s", label))
+print(sprintf("Label color: %s", label.color))
+print(sprintf("Label size: %s", label.size))
+print(sprintf("Point size: %s", pt.size))
+print(sprintf("Fig width x height: %s x %s", fig.width, fig.height))
+print(sprintf("Color bar: %s - %s", cols[[1]], cols[[2]]))
+```
+
+## UMAP, group by current clusters
+```{r UMAP_integration_2nd_dataset_groupby_clusters, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dpi = 300, dev = 'svg'}
+DimPlot(object = s.obj, reduction = "INTE_UMAP", label = label, label.box = TRUE, repel = TRUE, pt.size = pt.size) +
+  theme(text = element_text(size=25),
+        axis.text.x = element_text(hjust=1)) + 
+  xlim(-7, 10) + ylim(-8, 8)
+```
+
+## UMAP, group by samples
+```{r UMAP_integration_2nd_dataset_groupby_sample, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dpi = 300, dev = 'svg'}
+DimPlot(object = s.obj, group.by = "name", reduction = "INTE_UMAP", label = label, label.box = TRUE, repel = TRUE, pt.size = pt.size) + theme(text = element_text(size=25),
+        axis.text.x = element_text(hjust=1)) + 
+  xlim(-7, 10) + ylim(-8, 8)
+```
+
+
+# Cluster markers
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dpi = 300, dev = 'svg'}
+# Run find all cluster markers with default input parameters
+if (file.exists(file.path(path.to.02.output, "cluster_markers.rds")) == FALSE){
+  cluster.markers <- FindAllMarkers(object = s.obj, test.use = "wilcox", assay = "RNA")
+  cluster.markers <- subset(cluster.markers, (cluster.markers$p_val_adj <= 0.05) & (cluster.markers$avg_log2FC > 0))
+  saveRDS(cluster.markers, file.path(path.to.02.output, "cluster_markers.rds"))  
+} else {
+  cluster.markers <- readRDS(file.path(path.to.02.output, "cluster_markers.rds"))
+}
+DefaultAssay(s.obj) <- "RNA"
+```
+
+### Tables of all cluster marker genes {.tabset}
+```{r echo=FALSE, include=FALSE}
+cluster.markers %>% create_dt()
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=30, fig.height=20}
+
+for (cluster.id in sort(unique(cluster.markers$cluster))){
+  tmp.cluster.markers <- subset(cluster.markers, cluster.markers$cluster == cluster.id) %>% arrange(desc(avg_log2FC))
+  tmp.cluster.markers <- tmp.cluster.markers %>% mutate_if(is.numeric, round, 6) 
+  
+  cat(paste("\n\n#### Cluster: ", cluster.id, "##\n"))
+  print( htmltools::tagList(datatable(tmp.cluster.markers, extensions = 'Buttons',
+                                      filter = "top",
+                                      options = list(dom = 'Blfrtip',
+                                                     buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+                                                     lengthMenu = list(c(10,25,50,-1),
+                                                                       c(10,25,50,"All")),
+                                                     columnDefs = list(list(
+                                                       targets = "_all",
+                                                       render = JS(
+                                                         "function(data, type, row, meta) {",
+                                                         "return type === 'display' && data != null && data.length > 100 ?",
+                                                         "'<span title=\"' + data + '\">' + data.substr(0, 100) + '...</span>' : data;",
+                                                         "}")
+                                                     ))
+                                      ))))
+  cat("\n \n")
+}
+
+```
+
+
+### Top-12 cluster marker genes `FeaturePlot` {.tabset}
+Here we just show the top-12 genes (ranked by `avg_log2FC`) for each cluster. 
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=20, fig.height=15}
+for (cluster.id in sort(unique(s.obj@meta.data$seurat_clusters))){
+  DefaultAssay(s.obj) <- "RNA"
+  cat(sprintf("#### Cluster %s \n", cluster.id))
+  tmp.cluster.markers <- subset(cluster.markers, cluster.markers$cluster == cluster.id) %>% arrange(desc(avg_log2FC))
+  p <- FeaturePlot(object = s.obj, reduction = "RNA_UMAP", features = head(tmp.cluster.markers, 12)$gene, ncol = 3, label = TRUE, pt.size = 0.5, label.size = 5, label.color = "red")  
+  print(p)
+  cat("\n \n")
+}
+```
+
+### Top-12 cluster marker genes `DotPlot` {.tabset}
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=20, fig.height=15}
+for (cluster.id in sort(unique(s.obj@meta.data$seurat_clusters))){
+  DefaultAssay(s.obj) <- "RNA"
+  cat(sprintf("#### Cluster %s \n", cluster.id))
+  tmp.cluster.markers <- subset(cluster.markers, cluster.markers$cluster == cluster.id) %>% arrange(desc(avg_log2FC))
+  p <- DotPlot(object = s.obj, features = head(tmp.cluster.markers, 9)$gene)  
+  print(p)
+  cat("\n \n")
+}
+```
+
+### Top-12 cluster marker genes `Vlnplot` {.tabset}
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=20, fig.height=15}
+for (cluster.id in sort(unique(s.obj@meta.data$seurat_clusters))){
+  DefaultAssay(s.obj) <- "RNA"
+  cat(sprintf("#### Cluster %s \n", cluster.id))
+  tmp.cluster.markers <- subset(cluster.markers, cluster.markers$cluster == cluster.id) %>% arrange(desc(avg_log2FC))
+  p <- VlnPlot(object = s.obj, features = head(tmp.cluster.markers, 9)$gene)  
+  print(p)
+  cat("\n \n")
+}
+```
+
+# Heatmap: Cluster markers
+```{r echo=FALSE, warning=FALSE, message=FALSE, fig.width=30, fig.height=18, dpi = 300}
+library(viridis)
+
+list.of.top10.cluster.markers <- data.frame()
+for (cluster.id in unique(cluster.markers$cluster)){
+  tmp <- subset(cluster.markers, (cluster.markers$cluster == cluster.id) & (cluster.markers$p_val_adj <= 0.05) & (cluster.markers$avg_log2FC > 0)) %>% arrange(desc(avg_log2FC)) %>% head(10)
+  list.of.top10.cluster.markers <- rbind(list.of.top10.cluster.markers, tmp)
+}
+
+gex_cluster_markers_heatmap <- DoHeatmap(object = s.obj, features = list.of.top10.cluster.markers$gene, label = TRUE, draw.lines = T, assay = "RNA") + scale_fill_viridis(direction = -1)
+
+library(svglite)
+ggsave(plot = gex_cluster_markers_heatmap, filename = file.path(path.to.02.output, sprintf("heatmap_all_top10_cluster_marker_genes.svg")),
+       width = 30, height = 18, dpi = 400, device = 'png')
+
+print(gex_cluster_markers_heatmap)
+```
+
+# Clone VDJ information in all three samples 
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.height=14, fig.width=10}
+#####----------------------------------------------------------------------#####
+# PROCESSING CLONES FROM THE SECOND DATASET
+#####----------------------------------------------------------------------#####
+if (file.exists(file.path(path.to.02.output, "final_summary_clones_2ndDataset.xlsx")) == FALSE){
+  count.clonaltype.2nd <- hash()
+  
+  for (sample.id in unique(s.obj$name)){
+    tmpdf <- table(subset(s.obj, name == sample.id)$CTaa) %>% as.data.frame()
+    colnames(tmpdf) <- c("CTaa", "count")
+    count.clonaltype.2nd[[sample.id]] <- tmpdf
+  }
+  
+  # count the appearance of all clonal types in all samples
+  tmp1 <- merge(count.clonaltype.2nd$GFP_m1, count.clonaltype.2nd$GFP_m2, 
+                by.x = "CTaa", by.y = "CTaa", 
+                all.x = TRUE, all.y = TRUE) %>% arrange(desc(count.x))
+  
+  summary.count.clonaltype.2nd <- merge(tmp1, count.clonaltype.2nd$GFP_m3, 
+                                    by.x = "CTaa", by.y = "CTaa", 
+                                    all.x = TRUE, all.y = TRUE) %>% arrange(desc(count.x))
+  
+  colnames(summary.count.clonaltype.2nd) <- c("CTaa", "GFP_m1", "GFP_m2", "GFP_m3")
+  summary.count.clonaltype.2nd[is.na(summary.count.clonaltype.2nd)] <- 0
+  
+  summary.clonaltype.2nd <- data.frame(unique(c(count.clonaltype.2nd$GFP_m1$CTaa, 
+                                            count.clonaltype.2nd$GFP_m2$CTaa, 
+                                            count.clonaltype.2nd$GFP_m3$CTaa)))
+  
+  colnames(summary.clonaltype.2nd) <- c("CTaa")
+  
+  summary.clonaltype.2nd <- summary.clonaltype.2nd %>% rowwise %>% 
+    mutate(Status = assign_status_for_clonaltype_2nd(clone = CTaa, 
+                                                     count.clonaltype = count.clonaltype.2nd, 
+                                                     summary.count.clonaltype = summary.count.clonaltype.2nd))
+  
+  final.summary.clonaltype.2nd <- merge(summary.clonaltype.2nd, summary.count.clonaltype.2nd, by.x = "CTaa", by.y = "CTaa")
+  final.summary.clonaltype.2nd.raw <- final.summary.clonaltype.2nd
+  final.summary.clonaltype.2nd <- subset(final.summary.clonaltype.2nd, final.summary.clonaltype.2nd$Status != "excluded")
+  
+  final.summary.clonaltype.2nd <- final.summary.clonaltype.2nd %>% rowwise %>%
+    mutate(total = GFP_m1 + GFP_m2 + GFP_m3) 
+  
+  writexl::write_xlsx(x = final.summary.clonaltype.2nd.raw, path = file.path(path.to.02.output, "final_summary_clones_2ndDataset.raw.xlsx"))
+  writexl::write_xlsx(x = final.summary.clonaltype.2nd, path = file.path(path.to.02.output, "final_summary_clones_2ndDataset.xlsx"))
+} else {
+  final.summary.clonaltype.2nd.raw <- readxl::read_xlsx(file.path(path.to.02.output, "final_summary_clones_2ndDataset.raw.xlsx"))
+  final.summary.clonaltype.2nd <- readxl::read_xlsx(file.path(path.to.02.output, "final_summary_clones_2ndDataset.xlsx"))
+}
+
+```
+
+## Clone VDJ information with Shannon entropy
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.height=14, fig.width=10}
+if (file.exists(file.path(path.to.02.output, "final_summary_clones_2ndDataset.withShannonEntropy.xlsx")) == FALSE){
+  summary.clones.2nd <- final.summary.clonaltype.2nd %>% rowwise %>%
+  mutate(Shannon.entropy = calculate_shannon_entropy(clone = CTaa, s.obj = s.obj))
+writexl::write_xlsx(summary.clones.2nd, file.path(path.to.02.output, "final_summary_clones_2ndDataset.withShannonEntropy.xlsx"))  
+} else {
+  summary.clones.2nd <- readxl::read_xlsx(file.path(path.to.02.output, "final_summary_clones_2ndDataset.withShannonEntropy.xlsx"))
+}
+summary.clones.2nd %>% create_dt()
+```
+
+# Generate clone-UMAP
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.height=14, fig.width=10}
+#####
+# Path to save .svg files for clone-UMAP plots.
+#####
+dir.create(file.path(path.to.02.output, "shared_3_samples_clones"), showWarnings = FALSE, recursive = TRUE)
+dir.create(file.path(path.to.02.output, "unique_clones"), showWarnings = FALSE, recursive = TRUE)
+dir.create(file.path(path.to.02.output, "shared_2_samples_clones"), showWarnings = FALSE, recursive = TRUE)
+
+clone.summary <- final.summary.clonaltype.2nd
+unique.clones <- subset(clone.summary, clone.summary$Status == "unique_in_1_sample") %>% arrange(desc(total))
+shared2.clones <- subset(clone.summary, clone.summary$Status == "in_2_samples") %>% arrange(desc(total))
+shared3.clones <- subset(clone.summary, clone.summary$Status == "in_all_3_samples") %>% arrange(desc(total))
+
+split.unique.clones <- split(unique.clones$CTaa, ceiling(seq_along(unique.clones$CTaa) / 9))
+split.shared2.clones <- split(shared2.clones$CTaa, ceiling(seq_along(shared2.clones$CTaa) / 9))
+split.shared3.clones <- split(shared3.clones$CTaa, ceiling(seq_along(shared3.clones$CTaa) / 9))
+
+for (part in names(split.unique.clones)){
+  p <- plot_a_list_of_clonal_types_2nd_dataset(split.unique.clones[[part]], s.obj)
+  ggsave(plot = p, filename = file.path(path.to.02.output, "unique_clones", sprintf("unique_clones_UMAP_part_%s", part)),
+         device = 'svg', dpi = 300, width = 14, height = 10, units = "in")
+}
+
+
+for (part in names(split.shared2.clones)){
+  p <- plot_a_list_of_clonal_types_2nd_dataset(split.shared2.clones[[part]], s.obj)
+  ggsave(plot = p, filename = file.path(path.to.02.output, "shared_2_samples_clones", sprintf("shared2_clones_UMAP_part_%s", part)),
+         device = 'svg', dpi = 300, width = 14, height = 10, units = "in")
+}
+
+
+for (part in names(split.shared3.clones)){
+  p <- plot_a_list_of_clonal_types_2nd_dataset(split.shared3.clones[[part]], s.obj)
+  ggsave(plot = p, filename = file.path(path.to.02.output, "shared_3_samples_clones", sprintf("shared3_clones_UMAP_part_%s", part)),
+         device = 'svg', dpi = 300, width = 14, height = 10, units = "in")
+}
+```
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.height=14, fig.width=10}
+```
+
+
+

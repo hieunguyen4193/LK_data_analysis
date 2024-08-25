@@ -1,0 +1,9 @@
+[gene-expression],,,,
+reference,/home/hieunguyen/CRC1382/storage/cellranger_refs/mm10-with-NC_000001.11/mm10-with-NC_000001,,,
+expect-cells,1000,,,
+[vdj],,,,
+reference,/home/hieunguyen/CRC1382/storage/cellranger_refs/VDJref,,,
+[libraries],,,,
+fastq_id,fastqs,lanes,feature_types,subsample_rate
+m366_GEX,/home/hieunguyen/Downloads/1_Raw_data/fastq/HYHJKDRX2/m366_GEX,,gene expression,
+m366_TCR,/home/hieunguyen/Downloads/1_Raw_data/fastq/HYHJKDRX2/m366_TCR,,vdj,

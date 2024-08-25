@@ -1,0 +1,317 @@
+---
+title: "MHI 230316_Kopplin_Pabst, m366 vs m368"
+author:
+  - "trnguyen@ukaachen.de"
+date: "Last update on `r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    number_sections: true
+    df_print: paged
+    toc: true
+    toc_float:
+      toc_collapsed: false
+    toc_depth: 3
+    theme: lumen
+params:
+  analysis.case: NA
+  outdir: NA
+---
+  
+```{css zoom-lib-src, echo = FALSE}
+script src = "https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"
+```
+
+```{js zoom-jquery, echo = FALSE}
+$(document).ready(function() {
+  $('body').prepend('<div class=\"zoomDiv\"><img src=\"\" class=\"zoomImg\"></div>');
+  // onClick function for all plots (img's)
+    $('img:not(.zoomImg)').click(function() {
+      $('.zoomImg').attr('src', $(this).attr('src')).css({width: '100%'});
+      $('.zoomDiv').css({opacity: '1', width: 'auto', border: '1px solid white', borderRadius: '5px', position: 'fixed', top: '50%', left: '50%', marginRight: '-50%', transform: 'translate(-50%, -50%)', boxShadow: '0px 0px 50px #888888', zIndex: '50', overflow: 'auto', maxHeight: '100%'});
+    });
+    // onClick function for zoomImg
+    $('img.zoomImg').click(function() {
+      $('.zoomDiv').css({opacity: '0', width: '0%'}); 
+    });
+  });
+```
+
+<style type="text/css">
+    div.datatables { height: auto !important;}
+</style>
+
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='hide'}
+PROJECT <- "230316_Kopplin"
+outdir <- "/media/hieunguyen/HNSD_MBPro/CRC1382/outdir/LKopplin_OFFICIAL"
+
+path.to.main.src.project <- "/home/hieunguyen/CRC1382/src_2023/LKopplin/230316_Kopplin"
+source(file.path(path.to.main.src.project, "00_import_libraries.R"))
+source(file.path(path.to.main.src.project, "00_helper_functions.R"))
+
+path.to.main.input <- file.path(outdir, sprintf("%s/1st_round/pct_mito_10_1", PROJECT))
+path.to.main.output <- file.path(outdir, sprintf("%s/1st_round/pct_mito_10_1/data_analysis", PROJECT))
+
+path.to.01.output <- file.path(path.to.main.output, "01_output")
+path.to.02.output <- file.path(path.to.main.output, "02_output_m366_vs_m368")
+path.to.03.output <- file.path(path.to.main.output, "03_output_m366_vs_m368")
+dir.create(file.path(path.to.03.output), showWarnings = FALSE, recursive = TRUE)
+
+s.obj <- readRDS(file.path(path.to.02.output, "230316_Kopplin.m366_m368.seurat.obj.addedShannonEntropy.rds"))
+clone.summary <- read.csv(file.path(path.to.02.output, "final_VDJ_summary.csv"))
+clone.summary.raw <- clone.summary
+clone.summary.raw <- clone.summary.raw %>% arrange(desc(total)) %>% subset(select = -c(Shannon.entropy))
+
+clone.summary <- subset(clone.summary, clone.summary$total >= 10)
+
+clone.summary <- subset(clone.summary, select = -c(X))
+
+colnames(clone.summary) <- c("CTaa", "m366", "m368", "total", "Status", "Shannon.entropy")
+path.to.save.final.clonedf <- "/media/hieunguyen/HNSD_MBPro/CRC1382/outdir/LKopplin_OFFICIAL/summary_clone_dfs"
+
+source("/home/hieunguyen/CRC1382/src_2023/LKopplin/20231101_OFFICIAL/MHI_pipeline_helper_functions.R")
+```
+
+
+# Preparation
+## Dimensional reduction: UMAP of the second dataset
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+DimPlot(object = s.obj, reduction = "INTE_UMAP", label = TRUE, label.box = TRUE, label.size = 8, repel = TRUE)
+
+umap <- s.obj@reductions$INTE_UMAP@cell.embeddings %>% as.data.frame %>% rownames_to_column("Barcode")
+```
+
+## Clone information
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis'}
+clone.summary %>% mutate_if(is.numeric, round, 5) %>% create_dt()
+
+clone.metadata <- s.obj@meta.data %>% rownames_to_column("Barcode") %>% subset(select = c(c(Barcode, CTaa, seurat_clusters, name)))
+
+umap <- merge(umap, clone.metadata, by.x = "Barcode", by.y = "Barcode", all.x = TRUE, all.y = TRUE)
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+FeaturePlot(object = subset(s.obj, Shannon.entropy != "NA"), reduction = "INTE_UMAP", label = TRUE, label.size = 8, features = c("Shannon.entropy"), cols = c("darkblue", "lightgray"), pt.size = 1)
+```
+
+
+# Morisita-Horn index
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, results='hide'}
+save.clones.in.3.samples <- file.path(path.to.03.output, "clones_shared_in_3_samples")
+
+save.clones.in.2.samples <- file.path(path.to.03.output, "clones_shared_in_2_samples")
+
+save.shared.clones.vs.shared.clones <- file.path(path.to.03.output, "shared_clones_vs_shared_clones")
+
+save.unique.clones.vs.unique.clones <- file.path(path.to.03.output, "unique_clones_vs_unique_clones")
+
+save.unique.clones.vs.shared.clones <- file.path(path.to.03.output, "unique_clones_vs_shared_clones")
+
+```
+
+
+## Clones shared in all 3 samples 
+```{r, echo=FALSE, warning=FALSE, message=FALSE, results='asis'}
+clones.in.3.samples <- subset(clone.summary, clone.summary$Status == "shared_in_3_samples")
+
+res.clones.in.3.samples <- hash()
+
+clones.in.3.samples %>% mutate_if(is.numeric, round, 5) %>% create_dt()
+```
+
+### m366 vs m368
+```{r, echo=FALSE, warning=FALSE, message=FALSE, results='asis'}
+res.clones.in.3.samples[["m366_vs_m368"]] <- subset(clones.in.3.samples, clones.in.3.samples$m366 >= 10 & clones.in.3.samples$m368 >= 10) %>% rowwise %>%
+  mutate(MHI = func03_pipeline_01_02(umap, clone1 = CTaa, clone2 = CTaa, sample1 = "m366", sample2 = "m368")) 
+res.clones.in.3.samples[["m366_vs_m368"]] %>% mutate_if(is.numeric, round, 5) %>% create_dt()
+
+```
+
+
+## Clones shared in 2 samples
+```{r, echo=FALSE, warning=FALSE, message=FALSE, results='asis'}
+clones.in.2.samples <- subset(clone.summary, clone.summary$Status == "shared_in_2_samples")
+res.clones.in.2.samples <- hash()
+clones.in.2.samples %>% mutate_if(is.numeric, round, 5) %>% create_dt()
+```
+
+### Clones shared in m366 and m368
+```{r, echo=FALSE, warning=FALSE, message=FALSE, results='asis'}
+res.clones.in.2.samples[["m366_vs_m368"]] <- subset(clones.in.2.samples, clones.in.2.samples$m366 >= 10 & clones.in.2.samples$m368 >= 10) %>% rowwise %>%
+  mutate(MHI = func03_pipeline_01_02(umap, clone1 = CTaa, clone2 = CTaa, sample1 = "m366", sample2 = "m368")) 
+res.clones.in.2.samples[["m366_vs_m368"]] %>% mutate_if(is.numeric, round, 5) %>% create_dt()
+```
+
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+all.res.clones.in.2.samples <- res.clones.in.2.samples$m366_vs_m368
+all.res.clones.in.2.samples$group <- "clones in 2 samples"
+```
+
+
+## Unique clones vs unique clones
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+unique.clones <- hash()
+
+unique.clones[["m366"]] <- subset(clone.summary, clone.summary$Status == "unique_in_1_sample" & 
+                                      clone.summary$m366 >= 10)
+
+unique.clones[["m368"]] <- subset(clone.summary, clone.summary$Status == "unique_in_1_sample" & 
+                                      clone.summary$m368 >= 10)
+
+compare_unique <- hash()
+```
+
+
+### Unique clones m366 vs unique clones m366
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+if (length(unique.clones$m366$CTaa) >= 2){
+  compare_unique[["m366_vs_m366"]] <- t(as.data.frame(combn(unique.clones$m366$CTaa,2)))
+  colnames(compare_unique[["m366_vs_m366"]]) <- c("clone1", "clone2")
+  
+  compare_unique[["m366_vs_m366"]] <- compare_unique[["m366_vs_m366"]] %>% as.data.frame %>% rowwise %>%
+    mutate(MHI = func03_pipeline_01_02(umap, clone1 = clone1, clone2 = clone2, sample1 = "m366", sample2 = "m366"))
+  
+  compare_unique[["m366_vs_m366"]]  %>% mutate_if(is.numeric, round, 5) %>% create_dt()  
+} else {
+  compare_unique[["m366_vs_m366"]] <- data.frame(data = c("Not enough clones"))
+  compare_unique[["m366_vs_m366"]] %>% create_dt()  
+}
+
+```
+
+
+### Unique clones m366 vs unique clones m368
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+compare_unique[["m366_vs_m368"]] <- expand.grid("clone1"= unique.clones$m366$CTaa, "clone2" = unique.clones$m368$CTaa)
+
+compare_unique[["m366_vs_m368"]] <- compare_unique[["m366_vs_m368"]] %>% as.data.frame %>% rowwise %>%
+  mutate(MHI = func03_pipeline_01_02(umap, clone1 = clone1, clone2 = clone2, sample1 = "m366", sample2 = "m368"))
+
+compare_unique[["m366_vs_m368"]]  %>% mutate_if(is.numeric, round, 5) %>% create_dt()
+```
+
+
+### Unique clones m368 vs unique clones m368
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+compare_unique[["m368_vs_m368"]] <- t(as.data.frame(combn(unique.clones$m368$CTaa,2)))
+colnames(compare_unique[["m368_vs_m368"]]) <- c("clone1", "clone2")
+
+compare_unique[["m368_vs_m368"]] <- compare_unique[["m368_vs_m368"]] %>% as.data.frame %>% rowwise %>%
+  mutate(MHI = func03_pipeline_01_02(umap, clone1 = clone1, clone2 = clone2, sample1 = "m368", sample2 = "m368"))
+
+compare_unique[["m368_vs_m368"]]  %>% mutate_if(is.numeric, round, 5) %>% create_dt()
+```
+
+
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+all.compare.unique <- rbind(compare_unique$m366_vs_m366,
+                            compare_unique$m366_vs_m368,
+                            compare_unique$m368_vs_m368)
+all.compare.unique$group <- "unique vs unique"
+```
+
+## Shared clones vs shared clones
+### Selected shared clones: >=10 cells in both samples
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+shared.clones <- subset(clone.summary, clone.summary$Status != "unique_in_1_sample")
+
+check.shared_clone.gt10.in.sample <- function(clone, input.clone.summary){
+  m366 <- subset(input.clone.summary, input.clone.summary$CTaa == clone)$m366
+  m368 <- subset(input.clone.summary, input.clone.summary$CTaa == clone)$m368
+  if (m366 >= 10 & m368 >= 10){
+    return("PASS")
+  } else {
+    return("excluded")
+  }
+}
+```
+
+### Selected shared clones: >=10 cells in both samples
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+shared.clones <- shared.clones %>% rowwise() %>%
+  mutate(check = check.shared_clone.gt10.in.sample(CTaa, shared.clones))
+shared.clones <- subset(shared.clones, shared.clones$check == "PASS")
+shared.clones %>% create_dt()
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+compare_shared_vs_shared <- t(as.data.frame(combn(shared.clones$CTaa,2)))
+colnames(compare_shared_vs_shared) <- c("clone1", "clone2")
+
+compare_shared_vs_shared <- compare_shared_vs_shared %>% as.data.frame %>% rowwise %>%
+  mutate(MHI = func03_pipeline_01_02_clonewise(umap, clone1 = clone1, clone2 = clone2))
+compare_shared_vs_shared$group <- "shared vs shared"
+compare_shared_vs_shared %>% mutate_if(is.numeric, round, 5) %>% create_dt()
+```
+
+## Unique clones vs shared clones
+### Selected unique clones: >=10 cells 
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+all.unique.clones <- subset(clone.summary, clone.summary$Status == "unique_in_1_sample")
+all.unique.clones %>% create_dt()
+```
+
+### Table: unique clone vs shared clone
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+compare_unique_vs_shared <- expand.grid("clone1"= shared.clones$CTaa, "clone2" = all.unique.clones$CTaa)
+compare_unique_vs_shared <- compare_unique_vs_shared %>% as.data.frame %>% rowwise %>%
+  mutate(MHI = func03_pipeline_01_02_clonewise(umap, clone1 = clone1, clone2 = clone2))
+compare_unique_vs_shared$group <- "unique vs shared"
+compare_unique_vs_shared %>% mutate_if(is.numeric, round, 5) %>% create_dt()
+
+```
+
+## Boxplot: compare MHI in different cases
+
+### Table 
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+boxplotdf <- rbind(subset(all.res.clones.in.2.samples, select = c(group, MHI)),
+                   subset(all.compare.unique, select = c(group, MHI)),
+                   subset(compare_unique_vs_shared, select = c(group, MHI)),
+                   subset(compare_shared_vs_shared, select = c(group, MHI)))
+boxplotdf %>% create_dt()
+```
+
+### Boxplot
+```{r boxplot, echo=FALSE, warning=FALSE, message=FALSE, fig.width=14, fig.height=10, dev='svg'}
+ggplot(data = boxplotdf, aes(x = group, y = MHI)) + geom_boxplot()
+
+```
+
+
+# Final summary clone information, Shannon entropy and MHI
+```{r echo=FALSE, warning=FALSE, message=FALSE, fig.width=14, fig.height=10, dev='svg'}
+final.clonedf <- clone.summary.raw[, c("clone", "status", "m366", "m368", "total")]
+colnames(final.clonedf) <- c("Clone", "Status", "m366", "m368", "total")
+final.clonedf <- final.clonedf %>% rowwise() %>%
+  mutate(Shannon.entropy = ifelse( nrow(subset(clone.summary, clone.summary$CTaa == Clone)) != 0,
+                                   subset(clone.summary, clone.summary$CTaa == Clone)$Shannon.entropy, NA)) %>%
+  arrange(desc(total))
+assign_MHI_m366_vs_m368 <- function(Clone, Status){
+  if (Status == "shared_in_2_samples"){
+    if (Clone %in% res.clones.in.2.samples$m366_vs_m368$CTaa){
+      MHI_m366_vs_m368 <- subset(res.clones.in.2.samples$m366_vs_m368, res.clones.in.2.samples$m366_vs_m368$CTaa == Clone)$MHI
+    } else {
+      MHI_m366_vs_m368 <- NA
+    }
+  } else {
+    MHI_m366_vs_m368 <- NA
+  }  
+  return(MHI_m366_vs_m368)
+}
+
+final.clonedf <- final.clonedf %>% rowwise() %>%
+  mutate(MHI_m366_vs_m368 = assign_MHI_m366_vs_m368(Clone, Status))
+
+writexl::write_xlsx(final.clonedf, file.path(path.to.save.final.clonedf, "Dataset4_m366_vs_m368.xlsx"))
+final.clonedf %>% create_dt()
+```
+
+
+```{r}
+```
