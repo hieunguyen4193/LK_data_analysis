@@ -31,10 +31,10 @@ params:
 
 set.seed(42)
 
-# analysis.round <- "2nd"
+# analysis.round <- "1st"
 # PROJECT <- "1stExp_Kopplin"
-# outdir <- "/media/hieunguyen/HNSD_MBPro/CRC1382/outdir/LKopplin_OFFICIAL"
-# sample.id <- "CD45_m1"
+# outdir <- "/media/hieunguyen/HNSD_mini/outdir/LK_data_analysis"
+# sample.id <- "CD45exp1_m1"
 
 analysis.round <- params$analysis.round
 PROJECT <- params$PROJECT
@@ -49,11 +49,13 @@ source(file.path(path.to.pipeline.src, "processes_src", "import_libraries.R"))
 source(file.path(path.to.pipeline.src, "processes_src", "helper_functions.R"))
 source(file.path(path.to.pipeline.src, "processes_src", "s9_findMarkers.R"))
 
-input.datadir <- file.path(outdir, PROJECT, "2nd_round")
+input.datadir <- file.path(outdir, PROJECT, sprintf("%s_round", analysis.round))
 path.to.VDJ.output <- file.path(outdir, PROJECT, "VDJ_output")
 
 path.to.input <- file.path(input.datadir, sample.id, "s8a_output")
 path.to.output <- file.path(input.datadir, sample.id, "s9_output")
+
+path.to.project.src <- "/media/hieunguyen/HNSD01/src/LK_data_analysis/Dataset1"
 
 s.obj <- readRDS(file.path(path.to.input, sprintf("%s.output.s8a.rds", PROJECT)))
 
@@ -315,7 +317,7 @@ do.call(patchwork::wrap_plots, lapply(top20$CTaa, function(x) {
   return(p)
 })) -> subplot_all_top_20_clonaltypes
 
-save_plot_dir <- "/home/hieunguyen/CRC1382/outdir/1stExp_Kopplin/top20_clonaltypes_overlayUMAP"
+save_plot_dir <- file.path(outdir, PROJECT, "top20_clonaltypes_overlayUMAP")
 dir.create(save_plot_dir, showWarnings = FALSE)
 dir.create(file.path(save_plot_dir, sample.id), showWarnings = FALSE)
 
@@ -325,10 +327,12 @@ ggsave(plot = subplot_all_top_20_clonaltypes, filename = file.path(save_plot_dir
 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
-remove.clusters <- c(3, 4, 5)
-remove.barcodes <- colnames(subset(s.obj, seurat_clusters %in% remove.clusters ))
-
+source(file.path(path.to.project.src, "clusters_to_be_removed.R"))
+if (length(remove.clusters[[sprintf("%s_%s", sample.id, analysis.round)]]) == 0){
+  remove.barcodes <- NULL 
+} else {
+  remove.barcodes <- colnames(subset(s.obj, seurat_clusters %in% remove.clusters[[sprintf("%s_%s", sample.id, analysis.round)]] ))  
+}
 dir.create(file.path(path.to.output, "remove_barcodes"), showWarnings = FALSE)
-
 saveRDS(remove.barcodes, file.path(path.to.output, "remove_barcodes", sprintf("%s_remove_barcodes.rds", sample.id)))
 ```

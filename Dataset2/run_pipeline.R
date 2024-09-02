@@ -9,7 +9,7 @@ set.seed(my_random_seed)
 #####----------------------------------------------------------------------#####
 path.to.storage <- "/media/hieunguyen/HNSD01/storage/LKopplin_data"
 outdir <- "/media/hieunguyen/HNSD_mini/outdir/LK_data_analysis"
-PROJECT <- "1stExp_Kopplin"
+PROJECT <- "211227_Kopplin"
 
 path.to.main.input <- file.path(path.to.storage, PROJECT)
 
@@ -56,11 +56,9 @@ for (analysis.round in c("1st", "2nd")){
   
   stage_lst <- hash()
   
-  stage_lst[["GFPexp1_m1"]] <- c(GFPexp1_m1 = "GFP")
-  stage_lst[["GFPexp1_m2"]] <- c(GFPexp1_m2 = "GFP")
-  
-  stage_lst[["CD45exp1_m1"]] <- c(CD45exp1_m1 = "CD45")
-  stage_lst[["CD45exp1_m2"]] <- c(CD45exp1_m2 = "CD45")
+  stage_lst[["GFP_m1"]] <- c(GFP_m1 = "GFP")
+  stage_lst[["GFP_m2"]] <- c(GFP_m2 = "GFP")
+  stage_lst[["GFP_m3"]] <- c(GFP_m3 = "GFP")
   
   MINCELLS  <- 0
   MINGENES  <- 0
@@ -134,14 +132,6 @@ for (analysis.round in c("1st", "2nd")){
     if (analysis.round == "2nd"){
       path.to.filtered.barcodes <- file.path(path.to.main.output, "1st_round")
       filtered.barcodes <- readRDS(file.path(path.to.filtered.barcodes, sprintf("%s_1st_round/s9_output/remove_barcodes/%s_1st_round_remove_barcodes.rds", sample.id, sample.id)))
-    } else if (analysis.round == "3rd"){
-      path.to.filtered.barcodes.1 <- file.path(path.to.main.output, "1st_round")
-      filtered.barcodes.1 <- readRDS(file.path(path.to.filtered.barcodes.1, sprintf("%s_1st_round/s9_output/remove_barcodes/%s_1st_round_remove_barcodes.rds", sample.id, sample.id)))
-      
-      path.to.filtered.barcodes.2 <- file.path(path.to.main.output, "2nd_round")
-      filtered.barcodes.2 <- readRDS(file.path(path.to.filtered.barcodes.2, sprintf("%s_2nd_round/s9_output/remove_barcodes/%s_2nd_round_remove_barcodes.rds", sample.id, sample.id)))
-      
-      filtered.barcodes <- c(filtered.barcodes.1, filtered.barcodes.2)
     } else {
       filtered.barcodes <- NULL
     }
@@ -188,4 +178,4 @@ for (analysis.round in c("1st", "2nd")){
   # ______________________________________________
 }
 
-writeLines(capture.output(sessionInfo()), file.path(path.to.main.output, sprintf("%s_sessionInfo.txt", PROJECT)))
+writeLines(capture.output(sessionInfo()), file.path(path.to.main.output, sprintf("%s_sessionInfo.txt", PROJECT)))s
