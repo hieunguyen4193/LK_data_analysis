@@ -7,7 +7,7 @@ set.seed(my_random_seed)
 #####----------------------------------------------------------------------#####
 # PIPELINE CONFIGURATIONS
 #####----------------------------------------------------------------------#####
-path.to.storage <- "/home/hieunguyen/CRC1382/storage"
+path.to.storage <- "/media/hieunguyen/HNSD01/storage/LKopplin_data"
 outdir <- "/media/hieunguyen/HNSD_mini/outdir/LK_data_analysis"
 PROJECT <- "1stExp_Kopplin"
 
@@ -138,7 +138,9 @@ for (analysis.round in c("1st", "2nd")){
       filtered.barcodes.2 <- readRDS(file.path(path.to.filtered.barcodes.2, sprintf("%s_2nd_round/s9_output/remove_barcodes/%s_2nd_round_remove_barcodes.rds", sample, sample)))
       
       filtered.barcodes <- c(filtered.barcodes.1, filtered.barcodes.2)
-    } 
+    } else {
+      filtered.barcodes <- NULL
+    }
     #####------------------------------------------------------------------#####
     # MAIN GEX PIPELINE RUN
     #####------------------------------------------------------------------#####
@@ -163,7 +165,8 @@ for (analysis.round in c("1st", "2nd")){
                               filter.thresholds=filter.thresholds,
                               path.to.anno.contigs=path.to.anno.contigs,
                               path.to.count.clonaltype=path.to.count.clonaltype,
-                              input.method = "filterTRAB",
+                              input.method = "filterTRAB", 
+                              sw =  sw,
                               my_random_seed = my_random_seed)
     
     rmarkdown::render(file.path(path.to.downstream.rmd,
