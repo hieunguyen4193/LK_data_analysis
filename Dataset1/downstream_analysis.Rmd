@@ -1,0 +1,334 @@
+---
+title: "Downstream analysis for the Dataset 1, analysis round `r params$analysis.round`, PROJECT `r params$PROJECT`, sample: `r `"
+author:
+  - "trnguyen@ukaachen.de"
+date: "Last update on `r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    df_print: paged
+    toc: true
+    toc_float:
+      toc_collapsed: false
+    toc_depth: 3
+    number_sections: false
+    theme: lumen
+params:
+  sample.id: NA
+  outdir: NA
+  PROJECT: NA
+  analysis.round: NA
+---
+  
+`r knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, cache = F)`
+
+`r knitr::opts_chunk$set(fig.width=12, fig.height=8, dpi=500)`
+
+
+```{r preparation, echo=FALSE, results='hide', include=FALSE, warning=FALSE, message=FALSE}
+# _____INPUT THE PREPROCESSED SEURAT OBJECT FROM THE PIPELINE__________
+# gc()
+# rm(list = ls())
+
+set.seed(42)
+
+# analysis.round <- "2nd"
+# PROJECT <- "1stExp_Kopplin"
+# outdir <- "/media/hieunguyen/HNSD_MBPro/CRC1382/outdir/LKopplin_OFFICIAL"
+# sample.id <- "CD45_m1"
+
+analysis.round <- params$analysis.round
+PROJECT <- params$PROJECT
+outdir <- params$outdir
+sample.id <- params$sample.id
+
+sample.id <- sprintf("%s_%s_round", sample.id, analysis.round)
+
+path.to.pipeline.src <- "/media/hieunguyen/HNSD01/src/src_pipeline/scRNA_GEX_pipeline"
+
+source(file.path(path.to.pipeline.src, "processes_src", "import_libraries.R"))
+source(file.path(path.to.pipeline.src, "processes_src", "helper_functions.R"))
+source(file.path(path.to.pipeline.src, "processes_src", "s9_findMarkers.R"))
+
+input.datadir <- file.path(outdir, PROJECT, "2nd_round")
+path.to.VDJ.output <- file.path(outdir, PROJECT, "VDJ_output")
+
+path.to.input <- file.path(input.datadir, sample.id, "s8a_output")
+path.to.output <- file.path(input.datadir, sample.id, "s9_output")
+
+s.obj <- readRDS(file.path(path.to.input, sprintf("%s.output.s8a.rds", PROJECT)))
+
+# _____INPUT THE CLONAL TYPE DATA FROM VDJ DATA ANALYSIS__________
+
+path.to.anno.contigs <- file.path(path.to.VDJ.output, sprintf("annotated_contigs_clonaltype_%s.csv", str_replace(sample.id, sprintf("_%s_round", analysis.round), "")))
+
+path.to.count.clonaltype <- file.path(path.to.VDJ.output, sprintf("count_clonaltype_%s.csv", str_replace(sample.id, sprintf("_%s_round", analysis.round), "")))
+
+anno.contigs <- read.csv(path.to.anno.contigs)
+
+count.clonaltype <- read.csv(path.to.count.clonaltype)
+
+anno.contigs <- anno.contigs %>% 
+  rowwise %>% 
+  mutate(barcode = sprintf("%s_%s", sample.id, tail(unlist(str_split(barcode, pattern = "_")), 1)))
+
+
+
+```
+# Preprocessing and QC
+## Raw data Quality control  {.tabset}
+```{r, results = 'asis', echo = FALSE}
+for (plot.name in names(s.obj@misc$all.QC)){
+  
+  cat('###',plot.name,'{.unlisted .unnumbered} \n')
+  
+  ##### 
+  # plots or tables that we want to show in tabs
+  #####
+  print(s.obj@misc$all.QC[plot.name])
+  cat(' \n \n')
+  
+}
+
+```
+
+Number of cells in each sample.id after filtering out cells without associated AA sequences: 
+  
+```{r}
+print(table(s.obj@meta.data$name))
+```
+
+
+## Ambient RNA background correction 
+
+### DecontX clusters {.tabset}
+```{r, echo = FALSE, message=FALSE, warning=FALSE, results='asis'}
+
+for (plot.name in names(s.obj@misc$ambient.cluster.RNA.plot)){
+  
+  cat('####',plot.name,'{.unlisted .unnumbered} \n')
+  
+  ##### 
+  # plots or tables that we want to show in tabs
+  #####
+  print(s.obj@misc$ambient.cluster.RNA.plot[plot.name])
+  cat(' \n \n')
+}
+```
+
+### Contamination level in each sample.id
+
+```{r}
+ggplot(s.obj@meta.data, aes(x=name, y=AmbientRNA)) + 
+  geom_boxplot()
+
+```
+
+
+### Ambient RNA contamination level {.tabset}
+
+```{r, results = 'asis', echo = FALSE}
+for (plot.name in names(s.obj@misc$ambient.contamination.plot)){
+  
+  cat('####',plot.name,'{.unlisted .unnumbered} \n')
+  
+  ##### 
+  # plots or tables that we want to show in tabs
+  #####
+  print(s.obj@misc$ambient.contamination.plot[plot.name])
+  cat(' \n \n')
+}
+```
+
+
+## Descriptive statistics and filtering threshold {.tabset}
+This section is devoted to the descriptive statistics of the following varialbes: `nFeature_RNA, nCount_RNA, percent.mt, percent.ribo`. 
+
+```{r, results = 'asis', echo = FALSE}
+for (plot.item in c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.ribo")){
+  boxplot <- s.obj@meta.data %>% ggplot(aes_string(x = "name", y = plot.item)) +
+    geom_boxplot(outlier.colour="black", outlier.shape=16,
+                 outlier.size=2, notch=FALSE) +
+    ggtitle(sprintf("Boxplot: Distribution of %s in each dataset", plot.item))
+  cat('###', plot.item,'{.unlisted .unnumbered} \n')
+  
+  ##### 
+  # plots or tables that we want to show in tabs
+  #####
+  
+  print(boxplot)
+  
+  cat(' \n \n')
+}
+```
+
+# Clusterings and cluster markers identification
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE}
+DimPlot(object = s.obj, reduction = "RNA_UMAP", label = TRUE, label.box = TRUE)
+```
+
+## Clusters
+
+## Cluster markers {.tabset}
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE}
+dir.create(path.to.output, showWarnings = FALSE)
+
+
+if (file.exists(file.path(path.to.output, "s9_output" ,sprintf("%s.clusterMarkers.s9.rds", PROJECT)))  == FALSE){
+  print("Running process S9: Running find cluster markers ...")
+  
+  cluster.markers <- s9.findClusterMarkers(s.obj, 
+                                           path.to.output, 
+                                           TRUE,
+                                           PROJECT, 
+                                           "wilcox")
+  
+  
+} else {
+  cluster.markers <- readRDS(file.path(path.to.output, "s9_output", sprintf("%s.clusterMarkers.s9.rds", PROJECT)))
+}
+
+diff.cluster.markers <- cluster.markers$diff.markers
+
+```
+
+### Cluster 0
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE}
+subset(diff.cluster.markers, diff.cluster.markers$cluster == 0 & diff.cluster.markers$p_val_adj < 0.05) %>% 
+  rowwise %>% 
+  mutate_if(is.numeric, round, 6) %>% 
+  arrange(desc(avg_log2FC)) %>%
+  create_dt()
+```
+
+### Cluster 1
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE}
+subset(diff.cluster.markers, diff.cluster.markers$cluster == 1 & diff.cluster.markers$p_val_adj < 0.05) %>% 
+  rowwise %>% 
+  mutate_if(is.numeric, round, 6) %>% 
+  subset(avg_log2FC > 0) %>%
+  arrange(desc(avg_log2FC)) %>%
+  create_dt()
+```
+
+### Cluster 2
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE}
+subset(diff.cluster.markers, diff.cluster.markers$cluster == 2 & diff.cluster.markers$p_val_adj < 0.05) %>% 
+  rowwise %>% 
+  mutate_if(is.numeric, round, 6) %>% 
+  subset(avg_log2FC > 0) %>%
+  arrange(desc(avg_log2FC)) %>%
+  create_dt()
+```
+
+### Cluster 3
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE}
+subset(diff.cluster.markers, diff.cluster.markers$cluster == 3 & diff.cluster.markers$p_val_adj < 0.05) %>% 
+  rowwise %>% 
+  mutate_if(is.numeric, round, 6) %>% 
+  subset(avg_log2FC > 0) %>%
+  arrange(desc(avg_log2FC)) %>%
+  create_dt()
+```
+
+
+### Cluster 4
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE}
+subset(diff.cluster.markers, diff.cluster.markers$cluster == 4 & diff.cluster.markers$p_val_adj < 0.05) %>% 
+  rowwise %>% 
+  mutate_if(is.numeric, round, 6) %>% 
+  subset(avg_log2FC > 0) %>%
+  arrange(desc(avg_log2FC)) %>%
+  create_dt()
+```
+
+### Cluster 5
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE}
+subset(diff.cluster.markers, diff.cluster.markers$cluster == 5 & diff.cluster.markers$p_val_adj < 0.05) %>% 
+  rowwise %>% 
+  mutate_if(is.numeric, round, 6) %>% 
+  subset(avg_log2FC > 0) %>%
+  arrange(desc(avg_log2FC)) %>%
+  create_dt()
+```
+
+### Cluster 6
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE}
+subset(diff.cluster.markers, diff.cluster.markers$cluster == 6 & diff.cluster.markers$p_val_adj < 0.05) %>% 
+  rowwise %>% 
+  mutate_if(is.numeric, round, 6) %>% 
+  subset(avg_log2FC > 0) %>%
+  arrange(desc(avg_log2FC)) %>%
+  create_dt()
+```
+
+### Cluster 7
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE}
+subset(diff.cluster.markers, diff.cluster.markers$cluster == 7 & diff.cluster.markers$p_val_adj < 0.05) %>% 
+  rowwise %>% 
+  mutate_if(is.numeric, round, 6) %>% 
+  subset(avg_log2FC > 0) %>%
+  arrange(desc(avg_log2FC)) %>%
+  create_dt()
+```
+
+
+## Descriptive statistics + UMAP {.tabset}
+
+### % Mitochondrial
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE}
+FeaturePlot(object = s.obj, reduction = "RNA_UMAP", feature = "percent.mt", label = TRUE, label.color = "red", label.size = 6)
+```
+
+### % Ribosome
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE}
+FeaturePlot(object = s.obj, reduction = "RNA_UMAP", feature = "percent.ribo", label = TRUE, label.color = "red", label.size = 6)
+```
+
+### % nCount RNA
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE}
+FeaturePlot(object = s.obj, reduction = "RNA_UMAP", feature = "nCount_RNA", label = TRUE, label.color = "red", label.size = 6)
+```
+
+### % nGenes 
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE}
+FeaturePlot(object = s.obj, reduction = "RNA_UMAP", feature = "nFeature_RNA", label = TRUE, label.color = "red", label.size = 6)
+```
+
+
+# Clonal overlay
+
+```{r}
+top20 <-  head(count.clonaltype, 20)
+do.call(patchwork::wrap_plots, lapply(top20$CTaa, function(x) {
+  chosen.ctaa <- x
+  cell.names <- row.names(subset(slot(s.obj, "meta.data"),
+                                 slot(s.obj, "meta.data")$CTaa == chosen.ctaa))
+  p <- DimPlot(object = s.obj,
+               cells.highlight = cell.names,
+               cols.highlight = c("#f77281"),
+               cols = "gray", order = TRUE,
+               sizes.highlight = 1.5,
+               label = TRUE,
+               label.box = TRUE) +
+    theme(plot.title = element_text(size = 8, face = "bold"), legend.position = "none") +
+    ggtitle(chosen.ctaa) 
+  return(p)
+})) -> subplot_all_top_20_clonaltypes
+
+save_plot_dir <- "/home/hieunguyen/CRC1382/outdir/1stExp_Kopplin/top20_clonaltypes_overlayUMAP"
+dir.create(save_plot_dir, showWarnings = FALSE)
+dir.create(file.path(save_plot_dir, sample.id), showWarnings = FALSE)
+
+ggsave(plot = subplot_all_top_20_clonaltypes, filename = file.path(save_plot_dir, sample.id, sprintf("%s_top20_clonaltypes_overlay_UMAP.png", sample.id)), device='png', dpi=400, width = 20, height = 15, units = "in")
+
+```
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+remove.clusters <- c(3, 4, 5)
+remove.barcodes <- colnames(subset(s.obj, seurat_clusters %in% remove.clusters ))
+
+dir.create(file.path(path.to.output, "remove_barcodes"), showWarnings = FALSE)
+
+saveRDS(remove.barcodes, file.path(path.to.output, "remove_barcodes", sprintf("%s_remove_barcodes.rds", sample.id)))
+```

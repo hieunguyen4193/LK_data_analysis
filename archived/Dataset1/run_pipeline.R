@@ -4,28 +4,29 @@ rm(list = ls())
 my_random_seed <- 42
 set.seed(my_random_seed)
 
+
+PROJECT <- "1stExp_Kopplin"
+
 #####----------------------------------------------------------------------#####
 # PIPELINE CONFIGURATIONS
 #####----------------------------------------------------------------------#####
 path.to.storage <- "/home/hieunguyen/CRC1382/storage"
-outdir <- "/media/hieunguyen/HNSD_mini/outdir/LK_data_analysis"
-PROJECT <- "1stExp_Kopplin"
-
+outdir <- "/media/hieunguyen/HNSD_MBPro/CRC1382/outdir/LKopplin_OFFICIAL"
 path.to.main.input <- file.path(path.to.storage, PROJECT)
 
 path.to.main.output <- file.path(outdir, PROJECT)
 dir.create(path.to.main.output, showWarnings = FALSE, recursive = TRUE)
 
-path.to.project.src <- "/media/hieunguyen/HNSD01/src/LK_data_analysis/Dataset1"
-path.to.downstream.rmd <- file.path(path.to.project.src, "downstream_analysis.Rmd")
+path.to.project.src <- "/home/hieunguyen/CRC1382/src_2023/LKopplin/20231101_OFFICIAL/Dataset1"
+path.to.downstream.rmd <- file.path(path.to.project.src, "preliminary_downstream_analysis")
 
 path.to.VDJ.input <- file.path(path.to.main.input, "TCR")
 path.to.VDJ.output <- file.path(path.to.main.output, "VDJ_output")
 
-path.to.pipeline.src <- "/media/hieunguyen/HNSD01/src/src_pipeline/scRNA_GEX_pipeline"
+path.to.pipeline.src <- "/home/hieunguyen/CRC1382/src_2023/src_pipeline/scRNA_GEX_pipeline"
 path2src <- file.path(path.to.pipeline.src, "processes_src")
 
-path.to.pipeline.src <- "/media/hieunguyen/HNSD01/src/src_pipeline"
+path.to.pipeline.src <- "/home/hieunguyen/CRC1382/src_2023/src_pipeline"
 
 source(file.path(path.to.pipeline.src, "scRNA_VDJ_pipeline", "main_VDJ_pipeline.R"))
 
@@ -94,6 +95,8 @@ for (analysis.round in c("1st", "2nd")){
                 s8a = FALSE,
                 s9 = FALSE)
   
+  
+  
   filter.thresholds <- list(nFeatureRNAfloor = NULL,
                             nFeatureRNAceiling = NULL,
                             nCountRNAfloor = NULL, 
@@ -138,7 +141,23 @@ for (analysis.round in c("1st", "2nd")){
       filtered.barcodes.2 <- readRDS(file.path(path.to.filtered.barcodes.2, sprintf("%s_2nd_round/s9_output/remove_barcodes/%s_2nd_round_remove_barcodes.rds", sample, sample)))
       
       filtered.barcodes <- c(filtered.barcodes.1, filtered.barcodes.2)
-    } 
+    } else if (analysis.round == "4th") {
+      path.to.filtered.barcodes.1 <- file.path(path.to.main.output, "/1st_round")
+      filtered.barcodes.1 <- readRDS(file.path(path.to.filtered.barcodes.1, 
+                                               sprintf("%s_1st_round/s9_output/remove_barcodes/%s_1st_round_remove_barcodes.rds", sample, sample)))
+      
+      path.to.filtered.barcodes.2 <- file.path(path.to.main.output, "2nd_round")
+      filtered.barcodes.2 <- readRDS(file.path(path.to.filtered.barcodes.2, 
+                                               sprintf("%s_2nd_round/s9_output/remove_barcodes/%s_2nd_round_remove_barcodes.rds", sample, sample)))
+      
+      path.to.filtered.barcodes.3 <- file.path(path.to.main.output, "3rd_round")
+      filtered.barcodes.3 <- readRDS(file.path(path.to.filtered.barcodes.3, 
+                                               sprintf("%s_3rd_round/s9_output/remove_barcodes/%s_3rd_round_remove_barcodes.rds", sample, sample)))
+      
+      filtered.barcodes <- c(filtered.barcodes.1, filtered.barcodes.2, filtered.barcodes.3)
+    } else {
+      filtered.barcodes <- NULL
+    }
     #####------------------------------------------------------------------#####
     # MAIN GEX PIPELINE RUN
     #####------------------------------------------------------------------#####
