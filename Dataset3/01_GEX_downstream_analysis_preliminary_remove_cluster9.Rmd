@@ -1,0 +1,396 @@
+---
+title: "Downstream analysis 230215_Kopplin_Pabst"
+author:
+  - "trnguyen@ukaachen.de"
+date: "Last update on `r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    number_sections: true
+    df_print: paged
+    toc: true
+    toc_float:
+      toc_collapsed: false
+    toc_depth: 3
+    theme: lumen
+params:
+  PROJECT: NA
+  outdir: NA
+---
+  
+```{css zoom-lib-src, echo = FALSE}
+script src = "https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"
+```
+
+```{js zoom-jquery, echo = FALSE}
+$(document).ready(function() {
+  $('body').prepend('<div class=\"zoomDiv\"><img src=\"\" class=\"zoomImg\"></div>');
+  // onClick function for all plots (img's)
+    $('img:not(.zoomImg)').click(function() {
+      $('.zoomImg').attr('src', $(this).attr('src')).css({width: '100%'});
+      $('.zoomDiv').css({opacity: '1', width: 'auto', border: '1px solid white', borderRadius: '5px', position: 'fixed', top: '50%', left: '50%', marginRight: '-50%', transform: 'translate(-50%, -50%)', boxShadow: '0px 0px 50px #888888', zIndex: '50', overflow: 'auto', maxHeight: '100%'});
+    });
+    // onClick function for zoomImg
+    $('img.zoomImg').click(function() {
+      $('.zoomDiv').css({opacity: '0', width: '0%'}); 
+    });
+  });
+```
+
+<style type="text/css">
+    div.datatables { height: auto !important;}
+</style>
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='hide', fig.height=10, fig.width=14}
+##### clean up #####
+# gc()
+# rm(list = ls())
+outdir <- "/media/hieunguyen/HNSD_mini/outdir/LK_data_analysis"
+PROJECT <- "230215_Kopplin_Pabst_added_NC_000001_merged_zcat_m330_m331"
+
+path.to.pipeline.src <- "/media/hieunguyen/HNSD01/src/src_pipeline/scRNA_GEX_pipeline"
+
+source(file.path(path.to.pipeline.src, "processes_src", "import_libraries.R"))
+source(file.path(path.to.pipeline.src, "processes_src", "helper_functions.R"))
+
+path.to.main.input <- file.path(outdir, sprintf("%s/1st_round/pct_mito_10_1", PROJECT))
+path.to.main.output <- file.path(outdir, sprintf("%s/1st_round/pct_mito_10_1/data_analysis", PROJECT))
+
+path.to.01.output <- file.path(path.to.main.output, "01_output")
+dir.create(path.to.01.output, showWarnings = FALSE, recursive = TRUE)
+
+s.obj <- readRDS(file.path(path.to.main.input, "s8_output", sprintf("%s.output.s8.rds", PROJECT)))
+
+##### generate RNA UMAP for each sample #####
+if (file.exists(file.path(path.to.01.output, "s.obj.before.integration.rds")) == FALSE){
+  s.obj.before.integration <- readRDS(file.path(path.to.main.input, "s6_output", sprintf("%s.output.s6.rds", PROJECT)))
+  
+  ##### Run s8a source
+  chosen.assay <- "RNA"
+  DefaultAssay(s.obj.before.integration) <- chosen.assay
+  num.PCA <- 25
+  num.PC.used.in.UMAP <- 25
+  num.PC.used.in.Clustering <- 25
+  num.dim.integration <- 25
+  num.dim.cluster <- 25
+  my_random_seed <- 42
+  cluster.resolution <- 0.5
+  
+  s.obj.before.integration <- RunPCA(s.obj.before.integration, npcs = num.PCA, verbose = FALSE, reduction.name=sprintf("%s_PCA", chosen.assay))
+    
+  s.obj.before.integration <- RunUMAP(s.obj.before.integration, reduction = sprintf("%s_PCA", chosen.assay), 
+                     dims = 1:num.PC.used.in.UMAP, reduction.name=sprintf("%s_UMAP", chosen.assay),
+                     seed.use = my_random_seed, umap.method = "uwot")
+    
+  # clustering 
+  s.obj.before.integration <- FindNeighbors(s.obj.before.integration, reduction = sprintf("%s_PCA", chosen.assay), dims = 1:num.PC.used.in.Clustering)
+    
+  s.obj.before.integration <- FindClusters(s.obj.before.integration, 
+                          resolution = cluster.resolution, random.seed = 0)
+  
+  saveRDS(object = s.obj.before.integration, file = file.path(path.to.01.output, "s.obj.before.integration.rds"))
+} else {
+  s.obj.before.integration <- readRDS(file.path(path.to.01.output, "s.obj.before.integration.rds"))
+}
+
+```
+
+# Preprocessing and QC for GEX data
+## Raw data Quality control  {.tabset}
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dev='svg'}
+for (plot.name in names(s.obj@misc$all.QC)){
+ 
+    cat('###',plot.name,'{.unlisted .unnumbered} \n')
+    
+    ##### 
+    # plots or tables that we want to show in tabs
+    #####
+    print(s.obj@misc$all.QC[plot.name])
+    cat(' \n \n')
+}
+```
+
+
+
+## Ambient RNA background correction 
+
+### DecontX clusters {.tabset}
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dev='svg'}
+for (plot.name in names(s.obj@misc$ambient.cluster.RNA.plot)){
+ 
+    cat('####',plot.name,'{.unlisted .unnumbered} \n')
+    
+    ##### 
+    # plots or tables that we want to show in tabs
+    #####
+    print(s.obj@misc$ambient.cluster.RNA.plot[plot.name])
+    cat(' \n \n')
+}
+```
+
+### Contamination level in each sample
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dev='svg'}
+ggplot(s.obj@meta.data, aes(x=name, y=AmbientRNA)) + 
+  geom_boxplot()
+
+```
+
+
+### Ambient RNA contamination level {.tabset}
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dev='svg'}
+for (plot.name in names(s.obj@misc$ambient.contamination.plot)){
+ 
+    cat('####',plot.name,'{.unlisted .unnumbered} \n')
+    
+    ##### 
+    # plots or tables that we want to show in tabs
+    #####
+    print(s.obj@misc$ambient.contamination.plot[plot.name])
+    cat(' \n \n')
+}
+```
+
+
+## Descriptive statistics and filtering threshold {.tabset}
+This section is devoted to the descriptive statistics of the following varialbes: `nFeature_RNA, nCount_RNA, percent.mt, percent.ribo`. 
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dev='svg'}
+for (plot.item in c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.ribo")){
+  boxplot <- s.obj@meta.data %>% ggplot(aes_string(x = "name", y = plot.item)) +
+    geom_boxplot(outlier.colour="black", outlier.shape=16,
+               outlier.size=2, notch=FALSE) +
+    ggtitle(sprintf("Boxplot: Distribution of %s in each dataset", plot.item))
+  cat('###', plot.item,'{.unlisted .unnumbered} \n')
+    
+    ##### 
+    # plots or tables that we want to show in tabs
+    #####
+  
+  print(boxplot)
+  
+  cat(' \n \n')
+}
+```
+
+
+
+## Descriptive statistics + UMAP {.tabset}
+
+### % Mitochondrial
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dev='svg'}
+FeaturePlot(object = s.obj, reduction = "INTE_UMAP", feature = "percent.mt", label = TRUE, label.size = 8, pt.size = 0.5, label.color = "red", )
+```
+
+### % Ribosome
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dev='svg'}
+FeaturePlot(object = s.obj, reduction = "INTE_UMAP", feature = "percent.ribo", label = TRUE, label.size = 8, pt.size = 0.5, label.color = "red", )
+```
+
+### % nCount RNA
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dev='svg'}
+FeaturePlot(object = s.obj, reduction = "INTE_UMAP", feature = "nCount_RNA", label = TRUE, label.size = 8, pt.size = 0.5, label.color = "red", )
+```
+
+### % nGenes 
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dev='svg'}
+FeaturePlot(object = s.obj, reduction = "INTE_UMAP", feature = "nFeature_RNA", label = TRUE, label.size = 8, pt.size = 0.5, label.color = "red", )
+```
+
+## Cell cycle scoring {.tabset}
+
+### Cell cycle, split by Phase
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dev='svg'}
+DimPlot(s.obj, reduction = "INTE_UMAP", split.by = "Phase")
+```
+
+### Cell cycle, group by Phase
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dev='svg'}
+DimPlot(s.obj, reduction = "INTE_UMAP", group.by = "Phase", label = TRUE, label.size = 8, pt.size = 0.5, label.box = TRUE, repel = TRUE)
+```
+
+### PCA, cell cycle, group by Phase
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dev='svg'}
+all.genes <- rownames(x = s.obj)
+s.genes <- paste0("^", cc.genes$s.genes, "$", collapse = "|")
+s.genes <- all.genes[grepl(s.genes, all.genes, ignore.case = TRUE)]
+g2m.genes <- paste0("^", cc.genes$g2m.genes, "$", collapse = "|")
+g2m.genes <- all.genes[grepl(g2m.genes, all.genes, ignore.case = TRUE)]
+s.obj <- RunPCA(s.obj, features = c(s.genes, g2m.genes), nfeatures.print = 10, reduction.name="CELLCYCLED_PCA")
+
+DimPlot(s.obj, reduction = "CELLCYCLED_PCA", group.by = "Phase", pt.size = 1)
+```
+
+# Dimension reduction with UMAP
+
+## UMAP: all clusters 
+```{r UMAP_all_clusters_after_integrating, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dev='svg'}
+# DimPlot(object = s.obj, reduction = "INTE_UMAP", label = TRUE, label.box = TRUE, label.size = 10, pt.size = 1, repel = TRUE) + 
+#   ggtitle(sprintf("UMAP: All clusters")) +
+#   theme(axis.text = element_text(size=20, face = "bold"),
+#         axis.title = element_text(size=20, face = "bold"), 
+#         title = element_text(size = 20, face = "bold"))
+DimPlot(object = s.obj, reduction = "INTE_UMAP", label = TRUE, label.box = TRUE, label.size = 10, pt.size = 1, repel = TRUE) + ggtitle("") 
+```
+
+## UMAP: all samples before integrating
+```{r UMAP_all_samples_before_integrating, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dev='svg'}
+# DimPlot(object = s.obj.before.integration, reduction = "RNA_UMAP", label = TRUE, label.box = TRUE, label.size = 10, pt.size = 1, repel = TRUE, group.by = "name") + 
+#   ggtitle(sprintf("UMAP Sample: All samples before integrating")) +
+#   theme(axis.text = element_text(size=20, face = "bold"),
+#         axis.title = element_text(size=20, face = "bold"), 
+#         title = element_text(size = 20, face = "bold"))
+
+DimPlot(object = s.obj.before.integration, reduction = "RNA_UMAP", label = TRUE, label.box = TRUE, label.size = 10, pt.size = 1, repel = TRUE, group.by = "name") + ggtitle("") 
+```
+
+## UMAP: all samples after integrating
+```{r UMAP_all_samples_after_integrating, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dev='svg'}
+# DimPlot(object = s.obj, reduction = "INTE_UMAP", label = TRUE, label.box = TRUE, label.size = 10, pt.size = 1, repel = TRUE, group.by = "name") + 
+#   ggtitle(sprintf("UMAP Sample: All samples after integrating")) +
+#   theme(axis.text = element_text(size=20, face = "bold"),
+#         axis.title = element_text(size=20, face = "bold"), 
+#         title = element_text(size = 20, face = "bold"))
+
+DimPlot(object = s.obj, reduction = "INTE_UMAP", label = TRUE, label.box = TRUE, label.size = 10, pt.size = 1, repel = TRUE, group.by = "name") + ggtitle("") 
+```
+
+## Distribution of cells having "GRCh38_CD2" gene (or added sequences)
+
+### Where are GRCh38_CD2 (or added sequences) cells?
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dev='svg'}
+
+if (PROJECT %in% c("230215_Kopplin_Pabst_NC_000001", "230215_Kopplin_Pabst_NC_000001_removed_contaminated_cells",
+                         "230215_Kopplin_Pabst_added_NC_000001_merged", "230215_Kopplin_Pabst_added_NC_000001_merged_zcat",
+                         "230215_Kopplin_Pabst_added_NC_000001_merged_zcat_m330_m331",
+                         "230215_Kopplin_Pabst_added_NC_000001_merged_zcat_m330_m331_remove_c9")){
+  added.gene <- "NC-000001.11"
+} else if (PROJECT %in% c("230215_Kopplin_Pabst_NC_060925", "230215_Kopplin_Pabst_added_NC_060925_merged", 
+                                "230215_Kopplin_Pabst_added_NC_060925_merged_zcat")){
+  added.gene <- "NC-060925.1"
+} else if (PROJECT == "230215_Kopplin_Pabst"){
+  added.gene <- "GRCh38-CD2"
+} else if (PROJECT == "230215_Kopplin_Pabst_removed_contaminated_cells"){
+  added.gene <- "GRCh38-CD2"
+}
+
+count.mat.CD2 <- GetAssayData(object = s.obj, slot = "counts", assay = "RNA")[added.gene, ]
+cd2.cells <- names(count.mat.CD2[count.mat.CD2!= 0])
+
+DimPlot(object = s.obj, reduction = "INTE_UMAP", cells.highlight = cd2.cells, cols.highlight = c("red"), label = TRUE, label.box = TRUE, repel = TRUE, pt.size = 0.5, sizes.highlight = 1) + theme(legend.position = "none") + 
+  ggtitle(sprintf("Distribution of cells having %s gene, # = %s", added.gene, length(cd2.cells)))
+```
+
+## Expressions of GRCh38_CD2 in each cell
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dev='svg'}
+DefaultAssay(s.obj) <- "RNA"
+FeaturePlot(object = s.obj, features = c(added.gene), label = TRUE, pt.size = 1)
+```
+
+
+# Cluster marker genes
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dev='svg'}
+if (file.exists(file.path(path.to.01.output, "all_cluster_markers.rds")) == FALSE){
+  cluster.markers <- FindAllMarkers(object = s.obj, assay = "RNA", test.use = "wilcox")
+  cluster.markers <- subset(cluster.markers, cluster.markers$p_val_adj <= 0.05 & cluster.markers$avg_log2FC > 0)
+  saveRDS(cluster.markers, file.path(path.to.01.output, "all_cluster_markers.rds"))
+} else {
+  cluster.markers <- readRDS(file.path(path.to.01.output, "all_cluster_markers.rds"))
+}
+
+```
+
+## Tables: All cluster marker genes {.tabset}
+
+```{r echo=FALSE, warning=FALSE, results='asis', include=FALSE}
+cluster.markers %>% create_dt()
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dev='svg'}
+for(cluster.id in sort(unique(cluster.markers$cluster))){
+  cat(paste("\n\n### Cluster: ", cluster.id, "##\n"))
+  tmp <- subset(cluster.markers, cluster.markers$cluster == cluster.id) %>% arrange(desc(avg_log2FC)) %>%
+    mutate_if(is.numeric, round, 6)
+  row.names(tmp) <- NULL
+  print( htmltools::tagList(datatable(tmp, extensions = 'Buttons',
+                filter = "top",
+                options = list(dom = 'Blfrtip',
+                               buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+                               lengthMenu = list(c(10,25,50,-1),
+                                                 c(10,25,50,"All")),
+                               columnDefs = list(list(
+                                 targets = "_all",
+                                 render = JS(
+                                   "function(data, type, row, meta) {",
+                                   "return type === 'display' && data != null && data.length > 100 ?",
+                                   "'<span title=\"' + data + '\">' + data.substr(0, 100) + '...</span>' : data;",
+                                   "}")
+                               ))
+                ))))
+  cat("\n \n")
+}
+```
+
+## Top-16 cluster markers feature plot {.tabset}
+
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=10, dev='svg'}
+for (cluster.id in unique(cluster.markers$cluster)){
+  DefaultAssay(s.obj) <- "RNA"
+  tmp <- subset(cluster.markers, cluster.markers$cluster == cluster.id & cluster.markers$p_val_adj < 0.05) %>% 
+  rowwise %>% 
+  mutate_if(is.numeric, round, 6) %>% 
+  arrange(desc(avg_log2FC)) %>% head(16)
+  cat(sprintf("### Cluster %s \n", cluster.id))
+  p <- FeaturePlot(object = s.obj, reduction = "INTE_UMAP", features = tmp$gene, ncol = 4, ) 
+  print(p)
+  cat("\n \n")
+}
+```
+
+## Top-16 cluster markers dot plot {.tabset}
+
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=10, dev='svg'}
+for (cluster.id in unique(cluster.markers$cluster)){
+  DefaultAssay(s.obj) <- "RNA"
+  tmp <- subset(cluster.markers, cluster.markers$cluster == cluster.id & cluster.markers$p_val_adj < 0.05) %>% 
+  rowwise %>% 
+  mutate_if(is.numeric, round, 6) %>% 
+  arrange(desc(avg_log2FC)) %>% head(16)
+  cat(sprintf("### Cluster %s \n", cluster.id))
+  p <- DotPlot(object = s.obj, features = tmp$gene) 
+  print(p)
+  cat("\n \n")
+}
+```
+
+## Top-16 cluster markers Violin plot {.tabset}
+
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=10, dev='svg'}
+for (cluster.id in unique(cluster.markers$cluster)){
+  DefaultAssay(s.obj) <- "RNA"
+  tmp <- subset(cluster.markers, cluster.markers$cluster == cluster.id & cluster.markers$p_val_adj < 0.05) %>% 
+  rowwise %>% 
+  mutate_if(is.numeric, round, 6) %>% 
+  arrange(desc(avg_log2FC)) %>% head(16)
+  cat(sprintf("### Cluster %s \n", cluster.id))
+  p <- VlnPlot(object = s.obj, features = tmp$gene, pt.size = 0) 
+  print(p)
+  cat("\n \n")
+}
+```
+
+
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=10, dev='svg'}
+saveRDS(object = s.obj, file = file.path(path.to.01.output, "230215_Kopplin.seurat.obj.rds"))
+
+# ##### REMOVE CLUSTER 9
+remove.barcodes.cluster9 <- colnames(subset(s.obj, seurat_clusters == 9))
+
+saveRDS(object = remove.barcodes.cluster9, file = file.path(path.to.01.output, "remove_barcodes_cluster_9.rds"))
+saveRDS(object = subset(s.obj, seurat_clusters != 9), file = file.path(path.to.01.output, "230215_Kopplin_seurat_obj.remove_clsuter9.rds"))
+```
+
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=10, dev='svg'}
+```
+

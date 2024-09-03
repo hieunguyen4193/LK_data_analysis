@@ -16,10 +16,10 @@ path.to.main.input <- file.path(path.to.storage, PROJECT)
 path.to.main.output <- file.path(outdir, PROJECT)
 dir.create(path.to.main.output, showWarnings = FALSE, recursive = TRUE)
 
-path.to.project.src <- "/media/hieunguyen/HNSD01/src/LK_data_analysis/Dataset1"
+path.to.project.src <- "/media/hieunguyen/HNSD01/src/LK_data_analysis/Dataset2"
 path.to.downstream.rmd <- file.path(path.to.project.src, "downstream_analysis.Rmd")
 
-path.to.VDJ.input <- file.path(path.to.main.input, "TCR")
+path.to.VDJ.input <- file.path(path.to.main.input, "VDJ")
 path.to.VDJ.output <- file.path(path.to.main.output, "VDJ_output")
 
 path.to.pipeline.src <- "/media/hieunguyen/HNSD01/src/src_pipeline/scRNA_GEX_pipeline"
@@ -117,7 +117,7 @@ for (analysis.round in c("1st", "2nd")){
     #####------------------------------------------------------------------#####
     # PATHS CONFIGURATIONS FOR EACH sample.id-RUN
     #####------------------------------------------------------------------#####
-    path2input <- file.path(path.to.main.input, "GEX", sprintf("GEX_single_%s", sample.id))
+    path2input <- file.path(path.to.main.input, "GEX", sample.id)
     
     path.to.sample.id.output <- file.path(path.to.main.output, sprintf("%s_round", analysis.round))
     dir.create(path.to.sample.id.output, showWarnings = FALSE)
