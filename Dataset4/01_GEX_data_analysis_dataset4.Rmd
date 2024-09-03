@@ -1,10 +1,11 @@
 ---
-title: "Downstream analysis 230215_Kopplin_Pabst"
+title: "Downstream analysis 230316_Kopplin, dataset 4"
 author:
   - "trnguyen@ukaachen.de"
 date: "Last update on `r format(Sys.time(), '%d %B, %Y')`"
 output:
   html_document:
+    keep_md: true
     number_sections: true
     df_print: paged
     toc: true
@@ -43,10 +44,9 @@ $(document).ready(function() {
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE, results='hide', fig.height=10, fig.width=14}
 ##### clean up #####
-# gc()
-# rm(list = ls())
+path.to.storage <- "/media/hieunguyen/HNSD01/storage/LKopplin_data"
 outdir <- "/media/hieunguyen/HNSD_mini/outdir/LK_data_analysis"
-PROJECT <- "230215_Kopplin_Pabst_added_NC_000001_merged_zcat_m330_m331"
+PROJECT <- "230316_Kopplin"
 
 path.to.pipeline.src <- "/media/hieunguyen/HNSD01/src/src_pipeline/scRNA_GEX_pipeline"
 source(file.path(path.to.pipeline.src, "processes_src", "import_libraries.R"))
@@ -56,7 +56,7 @@ path.to.main.input <- file.path(outdir, sprintf("%s/1st_round/pct_mito_10_1", PR
 path.to.main.output <- file.path(outdir, sprintf("%s/1st_round/pct_mito_10_1/data_analysis", PROJECT))
 
 path.to.01.output <- file.path(path.to.main.output, "01_output")
-dir.create(path.to.01.output, showWarnings = FALSE, recursive = TRUE)
+dir.create(file.path(path.to.01.output), showWarnings = FALSE, recursive = TRUE)
 
 s.obj <- readRDS(file.path(path.to.main.input, "s8_output", sprintf("%s.output.s8.rds", PROJECT)))
 
@@ -96,7 +96,7 @@ if (file.exists(file.path(path.to.01.output, "s.obj.before.integration.rds")) ==
 
 # Preprocessing and QC for GEX data
 ## Raw data Quality control  {.tabset}
-```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dev='svg'}
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
 for (plot.name in names(s.obj@misc$all.QC)){
  
     cat('###',plot.name,'{.unlisted .unnumbered} \n')
@@ -114,7 +114,7 @@ for (plot.name in names(s.obj@misc$all.QC)){
 ## Ambient RNA background correction 
 
 ### DecontX clusters {.tabset}
-```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dev='svg'}
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
 for (plot.name in names(s.obj@misc$ambient.cluster.RNA.plot)){
  
     cat('####',plot.name,'{.unlisted .unnumbered} \n')
@@ -129,7 +129,7 @@ for (plot.name in names(s.obj@misc$ambient.cluster.RNA.plot)){
 
 ### Contamination level in each sample
 
-```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dev='svg'}
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
 ggplot(s.obj@meta.data, aes(x=name, y=AmbientRNA)) + 
   geom_boxplot()
 
@@ -138,7 +138,7 @@ ggplot(s.obj@meta.data, aes(x=name, y=AmbientRNA)) +
 
 ### Ambient RNA contamination level {.tabset}
 
-```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dev='svg'}
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
 for (plot.name in names(s.obj@misc$ambient.contamination.plot)){
  
     cat('####',plot.name,'{.unlisted .unnumbered} \n')
@@ -155,7 +155,7 @@ for (plot.name in names(s.obj@misc$ambient.contamination.plot)){
 ## Descriptive statistics and filtering threshold {.tabset}
 This section is devoted to the descriptive statistics of the following varialbes: `nFeature_RNA, nCount_RNA, percent.mt, percent.ribo`. 
 
-```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dev='svg'}
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
 for (plot.item in c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.ribo")){
   boxplot <- s.obj@meta.data %>% ggplot(aes_string(x = "name", y = plot.item)) +
     geom_boxplot(outlier.colour="black", outlier.shape=16,
@@ -178,39 +178,39 @@ for (plot.item in c("nFeature_RNA", "nCount_RNA", "percent.mt", "percent.ribo"))
 ## Descriptive statistics + UMAP {.tabset}
 
 ### % Mitochondrial
-```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dev='svg'}
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
 FeaturePlot(object = s.obj, reduction = "INTE_UMAP", feature = "percent.mt", label = TRUE, label.size = 8, pt.size = 0.5, label.color = "red", )
 ```
 
 ### % Ribosome
-```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dev='svg'}
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
 FeaturePlot(object = s.obj, reduction = "INTE_UMAP", feature = "percent.ribo", label = TRUE, label.size = 8, pt.size = 0.5, label.color = "red", )
 ```
 
 ### % nCount RNA
-```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dev='svg'}
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
 FeaturePlot(object = s.obj, reduction = "INTE_UMAP", feature = "nCount_RNA", label = TRUE, label.size = 8, pt.size = 0.5, label.color = "red", )
 ```
 
 ### % nGenes 
-```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dev='svg'}
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
 FeaturePlot(object = s.obj, reduction = "INTE_UMAP", feature = "nFeature_RNA", label = TRUE, label.size = 8, pt.size = 0.5, label.color = "red", )
 ```
 
 ## Cell cycle scoring {.tabset}
 
 ### Cell cycle, split by Phase
-```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dev='svg'}
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
 DimPlot(s.obj, reduction = "INTE_UMAP", split.by = "Phase")
 ```
 
 ### Cell cycle, group by Phase
-```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dev='svg'}
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
 DimPlot(s.obj, reduction = "INTE_UMAP", group.by = "Phase", label = TRUE, label.size = 8, pt.size = 0.5, label.box = TRUE, repel = TRUE)
 ```
 
 ### PCA, cell cycle, group by Phase
-```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dev='svg'}
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
 all.genes <- rownames(x = s.obj)
 s.genes <- paste0("^", cc.genes$s.genes, "$", collapse = "|")
 s.genes <- all.genes[grepl(s.genes, all.genes, ignore.case = TRUE)]
@@ -224,17 +224,17 @@ DimPlot(s.obj, reduction = "CELLCYCLED_PCA", group.by = "Phase", pt.size = 1)
 # Dimension reduction with UMAP
 
 ## UMAP: all clusters 
-```{r UMAP_all_clusters_after_integrating, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dev='svg'}
+```{r UMAP_all_clusters_after_integrating, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
 # DimPlot(object = s.obj, reduction = "INTE_UMAP", label = TRUE, label.box = TRUE, label.size = 10, pt.size = 1, repel = TRUE) + 
 #   ggtitle(sprintf("UMAP: All clusters")) +
 #   theme(axis.text = element_text(size=20, face = "bold"),
 #         axis.title = element_text(size=20, face = "bold"), 
 #         title = element_text(size = 20, face = "bold"))
-DimPlot(object = s.obj, reduction = "INTE_UMAP", label = TRUE, label.box = TRUE, label.size = 10, pt.size = 1, repel = TRUE) + ggtitle("") 
+DimPlot(object = s.obj, reduction = "INTE_UMAP", label = TRUE, label.box = TRUE, label.size = 10, pt.size = 1, repel = TRUE) 
 ```
 
 ## UMAP: all samples before integrating
-```{r UMAP_all_samples_before_integrating, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dev='svg'}
+```{r UMAP_all_samples_before_integrating, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
 # DimPlot(object = s.obj.before.integration, reduction = "RNA_UMAP", label = TRUE, label.box = TRUE, label.size = 10, pt.size = 1, repel = TRUE, group.by = "name") + 
 #   ggtitle(sprintf("UMAP Sample: All samples before integrating")) +
 #   theme(axis.text = element_text(size=20, face = "bold"),
@@ -245,25 +245,25 @@ DimPlot(object = s.obj.before.integration, reduction = "RNA_UMAP", label = TRUE,
 ```
 
 ## UMAP: all samples after integrating
-```{r UMAP_all_samples_after_integrating, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dev='svg'}
+```{r UMAP_all_samples_after_integrating, echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
 # DimPlot(object = s.obj, reduction = "INTE_UMAP", label = TRUE, label.box = TRUE, label.size = 10, pt.size = 1, repel = TRUE, group.by = "name") + 
 #   ggtitle(sprintf("UMAP Sample: All samples after integrating")) +
 #   theme(axis.text = element_text(size=20, face = "bold"),
 #         axis.title = element_text(size=20, face = "bold"), 
 #         title = element_text(size = 20, face = "bold"))
 
-DimPlot(object = s.obj, reduction = "INTE_UMAP", label = TRUE, label.box = TRUE, label.size = 10, pt.size = 1, repel = TRUE, group.by = "name") + ggtitle("") 
+DimPlot(object = s.obj, reduction = "INTE_UMAP", label = TRUE, label.box = TRUE, label.size = 10, pt.size = 1, repel = TRUE, group.by = "name") + ggtitle("")
 ```
 
 ## Distribution of cells having "GRCh38_CD2" gene (or added sequences)
 
 ### Where are GRCh38_CD2 (or added sequences) cells?
-```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dev='svg'}
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
 
 if (PROJECT %in% c("230215_Kopplin_Pabst_NC_000001", "230215_Kopplin_Pabst_NC_000001_removed_contaminated_cells",
                          "230215_Kopplin_Pabst_added_NC_000001_merged", "230215_Kopplin_Pabst_added_NC_000001_merged_zcat",
                          "230215_Kopplin_Pabst_added_NC_000001_merged_zcat_m330_m331",
-                         "230215_Kopplin_Pabst_added_NC_000001_merged_zcat_m330_m331_remove_c9")){
+                         "230215_Kopplin_Pabst_added_NC_000001_merged_zcat_m330_m331_remove_c9", "230316_Kopplin")){
   added.gene <- "NC-000001.11"
 } else if (PROJECT %in% c("230215_Kopplin_Pabst_NC_060925", "230215_Kopplin_Pabst_added_NC_060925_merged", 
                                 "230215_Kopplin_Pabst_added_NC_060925_merged_zcat")){
@@ -282,14 +282,14 @@ DimPlot(object = s.obj, reduction = "INTE_UMAP", cells.highlight = cd2.cells, co
 ```
 
 ## Expressions of GRCh38_CD2 in each cell
-```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dev='svg'}
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
 DefaultAssay(s.obj) <- "RNA"
 FeaturePlot(object = s.obj, features = c(added.gene), label = TRUE, pt.size = 1)
 ```
 
 
 # Cluster marker genes
-```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dev='svg'}
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
 if (file.exists(file.path(path.to.01.output, "all_cluster_markers.rds")) == FALSE){
   cluster.markers <- FindAllMarkers(object = s.obj, assay = "RNA", test.use = "wilcox")
   cluster.markers <- subset(cluster.markers, cluster.markers$p_val_adj <= 0.05 & cluster.markers$avg_log2FC > 0)
@@ -306,7 +306,7 @@ if (file.exists(file.path(path.to.01.output, "all_cluster_markers.rds")) == FALS
 cluster.markers %>% create_dt()
 ```
 
-```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, dev='svg'}
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
 for(cluster.id in sort(unique(cluster.markers$cluster))){
   cat(paste("\n\n### Cluster: ", cluster.id, "##\n"))
   tmp <- subset(cluster.markers, cluster.markers$cluster == cluster.id) %>% arrange(desc(avg_log2FC)) %>%
@@ -333,7 +333,7 @@ for(cluster.id in sort(unique(cluster.markers$cluster))){
 
 ## Top-16 cluster markers feature plot {.tabset}
 
-```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=10, dev='svg'}
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=10}
 for (cluster.id in unique(cluster.markers$cluster)){
   DefaultAssay(s.obj) <- "RNA"
   tmp <- subset(cluster.markers, cluster.markers$cluster == cluster.id & cluster.markers$p_val_adj < 0.05) %>% 
@@ -349,7 +349,7 @@ for (cluster.id in unique(cluster.markers$cluster)){
 
 ## Top-16 cluster markers dot plot {.tabset}
 
-```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=10, dev='svg'}
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=10}
 for (cluster.id in unique(cluster.markers$cluster)){
   DefaultAssay(s.obj) <- "RNA"
   tmp <- subset(cluster.markers, cluster.markers$cluster == cluster.id & cluster.markers$p_val_adj < 0.05) %>% 
@@ -365,7 +365,7 @@ for (cluster.id in unique(cluster.markers$cluster)){
 
 ## Top-16 cluster markers Violin plot {.tabset}
 
-```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=10, dev='svg'}
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=10}
 for (cluster.id in unique(cluster.markers$cluster)){
   DefaultAssay(s.obj) <- "RNA"
   tmp <- subset(cluster.markers, cluster.markers$cluster == cluster.id & cluster.markers$p_val_adj < 0.05) %>% 
@@ -380,16 +380,236 @@ for (cluster.id in unique(cluster.markers$cluster)){
 ```
 
 
-```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=10, dev='svg'}
-saveRDS(object = s.obj, file = file.path(path.to.01.output, "230215_Kopplin.seurat.obj.rds"))
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=10}
+saveRDS(object = s.obj, file = file.path(path.to.01.output, "230316_Kopplin.seurat.obj.rds"))
 
-# ##### REMOVE CLUSTER 9
-remove.barcodes.cluster9 <- colnames(subset(s.obj, seurat_clusters == 9))
+removed.clusters <- c(14, 15, 16)
+filtered.barcodes <- colnames(subset(s.obj, seurat_clusters %in% removed.clusters == TRUE))
 
-saveRDS(object = remove.barcodes.cluster9, file = file.path(path.to.01.output, "remove_barcodes_cluster_9.rds"))
-saveRDS(object = subset(s.obj, seurat_clusters != 9), file = file.path(path.to.01.output, "230215_Kopplin_seurat_obj.remove_clsuter9.rds"))
+saveRDS(filtered.barcodes, file.path(path.to.01.output, "removed_barcodes_cluster_14_15_16.rds"))
+
+s.obj.original <- s.obj
 ```
 
-```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=10, dev='svg'}
+# Remove cluster 14, 15, 16
+
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=10}
+if (file.exists(file.path(path.to.01.output, "230316_Kopplin.seurat.obj.removed.14_15_16.integrated.rds")) == FALSE){
+  my_random_seed <- 42
+
+  num.dim.integration <- 25 
+  num.PCA <- 25
+  num.dim.cluster <- 25
+  num.PC.used.in.Clustering <- 25
+  num.PC.used.in.UMAP <- 25
+  cluster.resolution  <- 1
+  
+  ##### REMOVE CLUSTER 14 15 16 
+  s.obj <- subset(s.obj, seurat_clusters %in% c(14, 15, 16) == FALSE)
+  
+  ##### DIET THE SEURAT OBJECT AND GENERATE NEW DIMENSIONAL REDUCTION
+  s.obj <- DietSeurat(s.obj)
+  
+  chosen.assay <- "RNA"
+  DefaultAssay(s.obj) <- chosen.assay
+  
+  ##### Re run UMAP and integration
+  s.obj <- NormalizeData(s.obj) # ---> use Log Normalized
+  s.obj <- FindVariableFeatures(s.obj, selection.method = "vst")
+  s.obj <- ScaleData(s.obj, features = rownames(s.obj))
+    
+  s.obj <- RunPCA(s.obj, npcs = num.PCA, verbose = FALSE, reduction.name=sprintf("%s_PCA", chosen.assay))
+    
+  s.obj <- RunUMAP(s.obj, reduction = sprintf("%s_PCA", chosen.assay), 
+                     dims = 1:num.PC.used.in.UMAP, reduction.name=sprintf("%s_UMAP", chosen.assay),
+                     seed.use = my_random_seed, umap.method = "uwot")
+    
+  # clustering 
+  s.obj <- FindNeighbors(s.obj, reduction = sprintf("%s_PCA", chosen.assay), dims = 1:num.PC.used.in.Clustering)
+    
+  s.obj <- FindClusters(s.obj, resolution = cluster.resolution, random.seed = 0)
+  
+  #### Integration
+  data.list <- SplitObject(s.obj, split.by = "name")
+  data.list <- lapply(X = data.list, FUN = function(x) {
+      x <- NormalizeData(x)
+      x <- FindVariableFeatures(x, selection.method = "vst", nfeatures = 2000)})
+    
+  k.filter <- 200
+    
+  anchors <- FindIntegrationAnchors(object.list = data.list, dims = 1:num.dim.integration, scale=F,
+                                      k.filter = k.filter) ## THIS IS CCA DIMENSIONS
+    
+  s.obj_inte <- IntegrateData(anchorset = anchors, dims = 1:num.dim.integration, k.weight = k.filter) ## THIS IS PCA DIMENSION
+    
+  ## keep the order of integration obj
+  s.obj_inte <- s.obj_inte[, colnames(s.obj)]
+    
+  s.obj[['integrated']] <- s.obj_inte[['integrated']]
+    
+  s.obj@commands <- c(s.obj@commands, s.obj_inte@commands)
+    
+  s.obj@tools <- c(s.obj@tools, s.obj_inte@tools)
+    
+  DefaultAssay(s.obj) <- "integrated"
+  
+  s.obj <- ScaleData(s.obj, verbose = FALSE, features = row.names(s.obj))
+  
+  s.obj <- RunPCA(s.obj, npcs = num.PCA, verbose = FALSE, reduction.name="INTE_PCA")
+    
+  s.obj <- RunUMAP(s.obj, reduction = "INTE_PCA", dims = 1:num.PCA, reduction.name="INTE_UMAP")
+    
+    # clustering 
+  s.obj <- FindNeighbors(s.obj, reduction = "INTE_PCA", dims = 1:num.dim.cluster)
+    
+  s.obj <- FindClusters(s.obj, resolution = cluster.resolution)
+  
+  saveRDS(object = s.obj, file.path(path.to.01.output, "230316_Kopplin.seurat.obj.removed.14_15_16.integrated.rds"))
+  
+} else {
+  s.obj <- readRDS(file.path(path.to.01.output, "230316_Kopplin.seurat.obj.removed.14_15_16.integrated.rds"))
+}
 ```
 
+# UMAP: all clusters after removing clusters 14, 15, 16
+```{r all_4_samples, results='asis', echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=10, dev='svg', dpi=300}
+DimPlot(object = s.obj, reduction = "INTE_UMAP", label = TRUE, label.box = TRUE, repel = TRUE) + xlim(c(-14, 5)) + ylim(c(-7, 10))
+```
+
+# UMAP: all clusters, split by samples
+```{r m366, results='asis', echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=10, dev='svg', dpi=300}
+chosen.name <- "m366"
+DimPlot(object = subset(s.obj, name == chosen.name), reduction = "INTE_UMAP", label = TRUE, label.box = TRUE, repel = TRUE) + xlim(c(-14, 5)) + ylim(c(-7, 10))
+```
+
+```{r m367, results='asis', echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=10, dev='svg', dpi=300}
+chosen.name <- "m367"
+DimPlot(object = subset(s.obj, name == chosen.name), reduction = "INTE_UMAP", label = TRUE, label.box = TRUE, repel = TRUE) + xlim(c(-14, 5)) + ylim(c(-7, 10))
+```
+
+```{r m368, results='asis', echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=10, dev='svg', dpi=300}
+chosen.name <- "m368"
+DimPlot(object = subset(s.obj, name == chosen.name), reduction = "INTE_UMAP", label = TRUE, label.box = TRUE, repel = TRUE) + xlim(c(-14, 5)) + ylim(c(-7, 10))
+```
+
+```{r m369, results='asis', echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=10, dev='svg', dpi=300}
+chosen.name <- "m369"
+DimPlot(object = subset(s.obj, name == chosen.name), reduction = "INTE_UMAP", label = TRUE, label.box = TRUE, repel = TRUE) + xlim(c(-14, 5)) + ylim(c(-7, 10))
+```
+
+
+## Cluster marker genes
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+if (file.exists(file.path(path.to.01.output, "all_cluster_markers.after_removing_14_15_16.rds")) == FALSE){
+  cluster.markers <- FindAllMarkers(object = s.obj, assay = "RNA", test.use = "wilcox")
+  cluster.markers <- subset(cluster.markers, cluster.markers$p_val_adj <= 0.05 & cluster.markers$avg_log2FC > 0)
+  saveRDS(cluster.markers, file.path(path.to.01.output, "all_cluster_markers.after_removing_14_15_16.rds"))
+} else {
+  cluster.markers <- readRDS(file.path(path.to.01.output, "all_cluster_markers.after_removing_14_15_16.rds"))
+}
+
+```
+
+## Tables: All cluster marker genes {.tabset}
+
+```{r echo=FALSE, warning=FALSE, results='asis', include=FALSE}
+cluster.markers %>% create_dt()
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+for(cluster.id in sort(unique(cluster.markers$cluster))){
+  cat(paste("\n\n### Cluster: ", cluster.id, "##\n"))
+  tmp <- subset(cluster.markers, cluster.markers$cluster == cluster.id) %>% arrange(desc(avg_log2FC)) %>%
+    mutate_if(is.numeric, round, 6)
+  row.names(tmp) <- NULL
+  print( htmltools::tagList(datatable(tmp, extensions = 'Buttons',
+                filter = "top",
+                options = list(dom = 'Blfrtip',
+                               buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
+                               lengthMenu = list(c(10,25,50,-1),
+                                                 c(10,25,50,"All")),
+                               columnDefs = list(list(
+                                 targets = "_all",
+                                 render = JS(
+                                   "function(data, type, row, meta) {",
+                                   "return type === 'display' && data != null && data.length > 100 ?",
+                                   "'<span title=\"' + data + '\">' + data.substr(0, 100) + '...</span>' : data;",
+                                   "}")
+                               ))
+                ))))
+  cat("\n \n")
+}
+```
+
+## Top-16 cluster markers feature plot {.tabset}
+
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=10}
+for (cluster.id in unique(cluster.markers$cluster)){
+  DefaultAssay(s.obj) <- "RNA"
+  tmp <- subset(cluster.markers, cluster.markers$cluster == cluster.id & cluster.markers$p_val_adj < 0.05) %>% 
+  rowwise %>% 
+  mutate_if(is.numeric, round, 6) %>% 
+  arrange(desc(avg_log2FC)) %>% head(16)
+  cat(sprintf("### Cluster %s \n", cluster.id))
+  p <- FeaturePlot(object = s.obj, reduction = "INTE_UMAP", features = tmp$gene, ncol = 4, ) 
+  print(p)
+  cat("\n \n")
+}
+```
+
+## Top-16 cluster markers dot plot {.tabset}
+
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=10}
+for (cluster.id in unique(cluster.markers$cluster)){
+  DefaultAssay(s.obj) <- "RNA"
+  tmp <- subset(cluster.markers, cluster.markers$cluster == cluster.id & cluster.markers$p_val_adj < 0.05) %>% 
+  rowwise %>% 
+  mutate_if(is.numeric, round, 6) %>% 
+  arrange(desc(avg_log2FC)) %>% head(16)
+  cat(sprintf("### Cluster %s \n", cluster.id))
+  p <- DotPlot(object = s.obj, features = tmp$gene) 
+  print(p)
+  cat("\n \n")
+}
+```
+
+## Top-16 cluster markers Violin plot {.tabset}
+
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=10}
+for (cluster.id in unique(cluster.markers$cluster)){
+  DefaultAssay(s.obj) <- "RNA"
+  tmp <- subset(cluster.markers, cluster.markers$cluster == cluster.id & cluster.markers$p_val_adj < 0.05) %>% 
+  rowwise %>% 
+  mutate_if(is.numeric, round, 6) %>% 
+  arrange(desc(avg_log2FC)) %>% head(16)
+  cat(sprintf("### Cluster %s \n", cluster.id))
+  p <- VlnPlot(object = s.obj, features = tmp$gene, pt.size = 0) 
+  print(p)
+  cat("\n \n")
+}
+```
+
+
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=10}
+##### ADD VDJ INFORMATION INTO THE SEURAT OBJECT
+if (file.exists(file.path(path.to.01.output, "230316_Kopplin.seurat.obj.removed.14_15_16.addedVDJ.integrated.rds")) == FALSE){
+  path.to.main.dir <- file.path(outdir, sprintf("%s", PROJECT))
+
+  path.to.VDJ.output <- file.path(path.to.main.dir, "VDJ_output")
+  
+  all.vdj.files <- Sys.glob(file.path(path.to.VDJ.output, "annotated_contigs_clonaltype_*.csv"))
+  all.vdj.info.df <- data.frame()
+  for (file in all.vdj.files){
+    tmpdf <- read.csv(file) %>% subset(select = -c(X)) 
+    all.vdj.info.df <- rbind(all.vdj.info.df, tmpdf)
+  }
+  meta.data <- s.obj@meta.data %>% rownames_to_column("barcode")
+  meta.data <- merge(meta.data, all.vdj.info.df, by.x = "barcode", by.y = "barcode", all.x = TRUE)
+  s.obj <- AddMetaData(object = s.obj, metadata = meta.data$CTaa, col.name = "CTaa")
+  
+  saveRDS(s.obj, file.path(path.to.01.output, "230316_Kopplin.seurat.obj.removed.14_15_16.addedVDJ.integrated.rds"))  
+} 
+```
+
+```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=10}
+```
