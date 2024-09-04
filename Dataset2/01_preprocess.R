@@ -41,17 +41,8 @@ dir.create(path.to.01.output, showWarnings = FALSE)
 analysis.round.1st.exp <- "2nd"
 analysis.round.2nd.exp <- "2nd"
 
-path.to.first.exp.outdir <- file.path(outdir ,"1stExp_Kopplin")
 path.to.second.exp.outdir <- file.path(outdir, PROJECT)
-
-path.to.first.exp <- file.path(path.to.first.exp.outdir, sprintf("%s_round", analysis.round.1st.exp))
 path.to.second.exp <- file.path(path.to.second.exp.outdir, sprintf("%s_round", analysis.round.2nd.exp))
-
-#####----------------------------------------------------------------------#####
-# collect all output from 1st dataset 
-#####----------------------------------------------------------------------#####
-all_first_exprs <- Sys.glob(file.path(path.to.first.exp, "*"))
-names(all_first_exprs) <-  to_vec(for(exprs in all_first_exprs) str_replace(basename(exprs), sprintf("_%s_round", analysis.round.1st.exp), "")) 
 
 #####----------------------------------------------------------------------#####
 # collect all output from 2nd dataset 

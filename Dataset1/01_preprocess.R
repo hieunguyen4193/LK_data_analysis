@@ -10,7 +10,6 @@ gc()
 rm(list = ls())
 
 path.to.pipeline.src <- "/media/hieunguyen/HNSD01/src/src_pipeline"
-
 source(file.path(path.to.pipeline.src, "scRNA_GEX_pipeline", "processes_src", "import_libraries.R"))
 source(file.path(path.to.pipeline.src, "scRNA_GEX_pipeline", "processes_src", "helper_functions.R"))
 
@@ -18,6 +17,7 @@ source(file.path(path.to.pipeline.src, "scRNA_GEX_pipeline", "processes_src", "h
 # CONFIGURATIONS 
 #####----------------------------------------------------------------------#####
 PROJECT <- "1stExp_Kopplin"
+outdir <- "/media/hieunguyen/HNSD_mini/outdir/LK_data_analysis"
 
 chosen.seed <- 42
 num.dim.integration <- 25 
@@ -28,7 +28,7 @@ num.PC.used.in.Clustering <- 25
 
 source(file.path(path.to.pipeline.src, "scRNA_GEX_pipeline", "processes_src", "s8_integration_and_clustering.R"))
 
-outdir <- "/media/hieunguyen/HNSD_mini/outdir/LK_data_analysis"
+
 
 path.to.main.output <- file.path(outdir, PROJECT, "data_analysis")# keep!
 dir.create(path.to.main.output, showWarnings = FALSE, recursive = TRUE)

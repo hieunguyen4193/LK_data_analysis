@@ -1,4 +1,4 @@
-remove.barcodes <- list(
+remove.clusters <- list(
   GFP_m1_1st = c(4, 6, 7),
   GFP_m2_1st = c(5, 6, 7),
   GFP_m3_1st = c(3, 4, 6, 7, 8, 9),

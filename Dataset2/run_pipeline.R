@@ -178,4 +178,4 @@ for (analysis.round in c("1st", "2nd")){
   # ______________________________________________
 }
 
-writeLines(capture.output(sessionInfo()), file.path(path.to.main.output, sprintf("%s_sessionInfo.txt", PROJECT)))s
+writeLines(capture.output(sessionInfo()), file.path(path.to.main.output, sprintf("%s_sessionInfo.txt", PROJECT)))

@@ -325,7 +325,6 @@ ggsave(plot = subplot_all_top_20_clonaltypes, filename = file.path(save_plot_dir
 
 ```
 
-
 ```{r echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
 source(file.path(path.to.project.src, "clusters_to_be_removed.R"))
 if (length(remove.clusters[[sprintf("%s_%s", sample.id, analysis.round)]]) == 0){

@@ -46,7 +46,8 @@ $(document).ready(function() {
 # gc()
 # rm(list = ls())
 outdir <- "/media/hieunguyen/HNSD_mini/outdir/LK_data_analysis"
-PROJECT <- "230215_Kopplin_Pabst_added_NC_000001_merged_zcat_m330_m331"
+# PROJECT <- "230215_Kopplin_Pabst_added_NC_000001_merged_zcat_m330_m331"
+PROJECT <- "230215_Kopplin_Pabst_added_NC_000001_merged_zcat_m330_m331_remove_c9"
 
 path.to.pipeline.src <- "/media/hieunguyen/HNSD01/src/src_pipeline/scRNA_GEX_pipeline"
 source(file.path(path.to.pipeline.src, "processes_src", "import_libraries.R"))
@@ -381,15 +382,38 @@ for (cluster.id in unique(cluster.markers$cluster)){
 
 
 ```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=10, dev='svg'}
-saveRDS(object = s.obj, file = file.path(path.to.01.output, "230215_Kopplin.seurat.obj.rds"))
+if (file.exists(file.path(path.to.01.output, "230215_Kopplin.seurat.obj.rds")) == FALSE){
+  saveRDS(object = s.obj, file = file.path(path.to.01.output, "230215_Kopplin.seurat.obj.rds"))  
+}
+
 
 # ##### REMOVE CLUSTER 9
-remove.barcodes.cluster9 <- colnames(subset(s.obj, seurat_clusters == 9))
+if (file.exists(file.path(path.to.01.output, "230215_Kopplin_seurat_obj.remove_clsuter9.rds")) == FALSE){
+  remove.barcodes.cluster9 <- colnames(subset(s.obj, seurat_clusters == 9))
+  saveRDS(object = remove.barcodes.cluster9, file = file.path(path.to.01.output, "remove_barcodes_cluster_9.rds"))
+  saveRDS(object = subset(s.obj, seurat_clusters != 9), file = file.path(path.to.01.output, "230215_Kopplin_seurat_obj.remove_clsuter9.rds"))  
+}
 
-saveRDS(object = remove.barcodes.cluster9, file = file.path(path.to.01.output, "remove_barcodes_cluster_9.rds"))
-saveRDS(object = subset(s.obj, seurat_clusters != 9), file = file.path(path.to.01.output, "230215_Kopplin_seurat_obj.remove_clsuter9.rds"))
 ```
 
 ```{r results='asis', echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=10, dev='svg'}
+##### add vdj information to the main seurat object
+if (file.exists(file.path(path.to.01.output, "230215_Kopplin_seurat_obj.remove_clsuter9.addVDJ.rds")) == FALSE){
+  path.to.main.dir <- file.path(outdir, sprintf("%s", PROJECT))
+
+  path.to.VDJ.output <- file.path(path.to.main.dir, "VDJ_output")
+  
+  all.vdj.files <- Sys.glob(file.path(path.to.VDJ.output, "annotated_contigs_clonaltype_*.csv"))
+  all.vdj.info.df <- data.frame()
+  for (file in all.vdj.files){
+    tmpdf <- read.csv(file) %>% subset(select = -c(X)) 
+    all.vdj.info.df <- rbind(all.vdj.info.df, tmpdf)
+  }
+  meta.data <- s.obj@meta.data %>% rownames_to_column("barcode")
+  meta.data <- merge(meta.data, all.vdj.info.df, by.x = "barcode", by.y = "barcode", all.x = TRUE)
+  s.obj <- AddMetaData(object = s.obj, metadata = meta.data$CTaa, col.name = "CTaa")
+  
+  saveRDS(s.obj, file.path(path.to.01.output, "230215_Kopplin_seurat_obj.remove_clsuter9.addVDJ.rds"))  
+} 
 ```
 
