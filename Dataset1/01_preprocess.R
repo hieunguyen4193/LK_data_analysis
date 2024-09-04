@@ -28,8 +28,6 @@ num.PC.used.in.Clustering <- 25
 
 source(file.path(path.to.pipeline.src, "scRNA_GEX_pipeline", "processes_src", "s8_integration_and_clustering.R"))
 
-
-
 path.to.main.output <- file.path(outdir, PROJECT, "data_analysis")# keep!
 dir.create(path.to.main.output, showWarnings = FALSE, recursive = TRUE)
 

@@ -31,15 +31,15 @@ params:
 
 set.seed(42)
 
-# analysis.round <- "1st"
-# PROJECT <- "1stExp_Kopplin"
-# outdir <- "/media/hieunguyen/HNSD_mini/outdir/LK_data_analysis"
-# sample.id <- "CD45exp1_m1"
+analysis.round <- "1st"
+PROJECT <- "1stExp_Kopplin"
+outdir <- "/media/hieunguyen/HNSD_mini/outdir/LK_data_analysis"
+sample.id <- "CD45exp1_m1"
 
-analysis.round <- params$analysis.round
-PROJECT <- params$PROJECT
-outdir <- params$outdir
-sample.id <- params$sample.id
+# analysis.round <- params$analysis.round
+# PROJECT <- params$PROJECT
+# outdir <- params$outdir
+# sample.id <- params$sample.id
 
 sample.id <- sprintf("%s_%s_round", sample.id, analysis.round)
 
@@ -331,7 +331,7 @@ source(file.path(path.to.project.src, "clusters_to_be_removed.R"))
 if (length(remove.clusters[[sprintf("%s_%s", sample.id, analysis.round)]]) == 0){
   remove.barcodes <- NULL 
 } else {
-  remove.barcodes <- colnames(subset(s.obj, seurat_clusters %in% remove.clusters[[sprintf("%s_%s", sample.id, analysis.round)]] ))  
+  remove.barcodes <- colnames(subset(s.obj, seurat_clusters %in% remove.clusters[[sample.id]] ))  
 }
 dir.create(file.path(path.to.output, "remove_barcodes"), showWarnings = FALSE)
 saveRDS(remove.barcodes, file.path(path.to.output, "remove_barcodes", sprintf("%s_remove_barcodes.rds", sample.id)))

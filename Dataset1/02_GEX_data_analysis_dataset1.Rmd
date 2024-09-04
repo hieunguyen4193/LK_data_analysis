@@ -56,9 +56,8 @@ path.to.pipeline.src <- "/media/hieunguyen/HNSD01/src/src_pipeline"
 source(file.path(path.to.pipeline.src, "scRNA_GEX_pipeline", "processes_src", "import_libraries.R"))
 source(file.path(path.to.pipeline.src, "scRNA_GEX_pipeline", "processes_src", "helper_functions.R"))
 
-path.to.project.src <- "/home/hieunguyen/CRC1382/src_2023/LKopplin/LKopplin_scRNAseq_VDJ_analysis/Dataset1"
-source(file.path(path.to.project.src, "helper_functions.R"))
-
+path.to.project.src <- "/media/hieunguyen/HNSD01/src/LK_data_analysis"
+path.to.general.helper.functions <- file.path(path.to.project.src, "helper_functions.R")
 #####----------------------------------------------------------------------#####
 # CONFIGURATIONS 
 #####----------------------------------------------------------------------#####
