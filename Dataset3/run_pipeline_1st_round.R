@@ -137,6 +137,17 @@ for (analysis.round in c("1st_round")){
                             num.dim.integration=num.dim.integration,
                             cluster.resolution = cluster.resolution,
                             sw = sw)
+  path.to.project.src <- "/media/hieunguyen/HNSD01/src/LK_data_analysis/Dataset3"
+  path.to.downstream.rmd <- file.path(path.to.project.src, "01_GEX_downstream_analysis_preliminary_remove_cluster9.Rmd")
+  path.to.save.html <- file.path(outdir, "html_output", PROJECT)
+  dir.create(path.to.save.html, showWarnings = FALSE, recursive = TRUE)
+  rmarkdown::render(path.to.downstream.rmd,
+                    params = list(
+                      outdir =  outdir,
+                      PROJECT = PROJECT
+                    ),
+                    output_file = sprintf("downstream_analysis_%s_%s.html", PROJECT, analysis.round),
+                    output_dir = path.to.save.html)
 }
 
 writeLines(capture.output(sessionInfo()), file.path(path.to.output, sprintf("%s_sessionInfo.txt", PROJECT)))  
