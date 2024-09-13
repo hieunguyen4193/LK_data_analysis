@@ -168,7 +168,7 @@ for (analysis.round in c("1st_round")){
   rmarkdown::render(path.to.downstream.rmd,
                     params = list(
                       outdir =  outdir,
-                      PROJECT = PROJECT
+                      PROJECT = sprintf("%s_remove_c9", PROJECT)
                     ),
                     output_file = sprintf("downstream_analysis_%s_%s_%s.html", PROJECT, sample.id, analysis.round),
                     output_dir = path.to.save.html)
