@@ -31,15 +31,15 @@ params:
 
 set.seed(42)
 
-# analysis.round <- "1st"
-# PROJECT <- "1stExp_Kopplin"
-# outdir <- "/media/hieunguyen/HNSD_mini/outdir/LK_data_analysis"
-# sample.id <- "CD45exp1_m1"
+analysis.round <- "1st"
+PROJECT <- "1stExp_Kopplin"
+outdir <- "/media/hieunguyen/HNSD_mini/outdir/LK_data_analysis"
+sample.id <- "CD45exp1_m1"
 
-analysis.round <- params$analysis.round
-PROJECT <- params$PROJECT
-outdir <- params$outdir
-sample.id <- params$sample.id
+# analysis.round <- params$analysis.round
+# PROJECT <- params$PROJECT
+# outdir <- params$outdir
+# sample.id <- params$sample.id
 
 sample.id <- sprintf("%s_%s_round", sample.id, analysis.round)
 
@@ -76,6 +76,7 @@ anno.contigs <- anno.contigs %>%
 
 
 ```
+
 # Preprocessing and QC
 ## Raw data Quality control  {.tabset}
 ```{r, results = 'asis', echo = FALSE}
