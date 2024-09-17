@@ -413,8 +413,7 @@ if (file.exists(file.path(path.to.01.output, sprintf("%s.addVDJ.rds", PROJECT)))
   meta.data <- s.obj@meta.data %>% rownames_to_column("barcode")
   meta.data <- merge(meta.data, all.vdj.info.df, by.x = "barcode", by.y = "barcode", all.x = TRUE)
   s.obj <- AddMetaData(object = s.obj, metadata = meta.data$CTaa, col.name = "CTaa")
-  
-  saveRDS(s.obj, file.path(path.to.01.output, sprintf("%s.addVDJ.rds", PROJECT)))  
+  saveRDS(s.obj, file.path(path.to.01.output, sprintf("%s.addVDJ.rds", PROJECT))) 
 } 
 ```
 

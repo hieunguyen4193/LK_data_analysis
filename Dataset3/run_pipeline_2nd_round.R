@@ -163,14 +163,14 @@ for (analysis.round in c("1st_round")){
                             sw = sw)
   path.to.project.src <- "/media/hieunguyen/HNSD01/src/LK_data_analysis/Dataset3"
   path.to.downstream.rmd <- file.path(path.to.project.src, "01_GEX_downstream_analysis_preliminary_remove_cluster9.Rmd")
-  path.to.save.html <- file.path(outdir, "html_output", PROJECT)
+  path.to.save.html <- file.path(outdir, "html_output", sprintf("%s_remove_c9", PROJECT))
   dir.create(path.to.save.html, showWarnings = FALSE, recursive = TRUE)
   rmarkdown::render(path.to.downstream.rmd,
                     params = list(
                       outdir =  outdir,
                       PROJECT = sprintf("%s_remove_c9", PROJECT)
                     ),
-                    output_file = sprintf("downstream_analysis_%s_%s_%s.html", PROJECT, sample.id, analysis.round),
+                    output_file = sprintf("downstream_analysis_%s_%s.html", sprintf("%s_remove_c9", PROJECT), analysis.round),
                     output_dir = path.to.save.html)
 }
 
