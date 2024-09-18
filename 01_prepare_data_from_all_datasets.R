@@ -74,19 +74,26 @@ sample.names <- unlist(lapply(lapply(all.vdj.files, dirname), basename))
 names(all.vdj.files) <- sample.names
 
 for (dataset.name in names(all.s.obj)){
-  all.s.obj[[dataset.name]]$CTaa <- NULL
-  all.contig.files <- all.vdj.files[sample.list[[dataset.name]]]
-  
-  contig_list <- lapply(all.contig.files, vroom, show_col_type = FALSE)
-  names(contig_list) <- sample.list[[dataset.name]]
-  combined.contigs <- combineTCR(contig_list,
-                                 samples = sample.list[[dataset.name]],
-                                 ID = sample.list[[dataset.name]],
-                                 removeNA=FALSE, 
-                                 removeMulti=FALSE, 
-                                 cells = "T-AB")
-  names(combined.contigs) <- sample.list[[dataset.name]]
-  
-  all.s.obj[[dataset.name]] <- combineExpression(combined.contigs, all.s.obj[[dataset.name]], cloneCall="aa")
-  saveRDS(all.s.obj[[dataset.name]], file.path(path.to.01.output, sprintf("%s.rds", dataset.name)))
+  if (file.exists(file.path(path.to.01.output, sprintf("%s.rds", dataset.name))) == FALSE){
+    if (dataset.name == "Dataset1"){
+      reduction.name <- "RNA_UMAP"
+    } else {
+      reduction.name <- "INTE_UMAP"
+    }
+    all.s.obj[[dataset.name]]$CTaa <- NULL
+    all.contig.files <- all.vdj.files[sample.list[[dataset.name]]]
+    
+    contig_list <- lapply(all.contig.files, vroom, show_col_type = FALSE)
+    names(contig_list) <- sample.list[[dataset.name]]
+    combined.contigs <- combineTCR(contig_list,
+                                   samples = sample.list[[dataset.name]],
+                                   ID = sample.list[[dataset.name]],
+                                   removeNA=FALSE, 
+                                   removeMulti=FALSE, 
+                                   cells = "T-AB")
+    names(combined.contigs) <- sample.list[[dataset.name]]
+    
+    all.s.obj[[dataset.name]] <- combineExpression(combined.contigs, all.s.obj[[dataset.name]], cloneCall="aa")
+    saveRDS(all.s.obj[[dataset.name]], file.path(path.to.01.output, sprintf("%s.rds", dataset.name)))
+  }
 }

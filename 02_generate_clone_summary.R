@@ -41,6 +41,9 @@ for (dataset.name in names(dataset.names)){
   }
   meta.data <- all.s.obj[[dataset.name]]@meta.data %>% subset(select = -c(barcode)) %>% rownames_to_column("barcode")
   clonedf <- data.frame(table(meta.data$CTaa))%>% arrange(desc(Freq))
+  umapdf <- all.s.obj$Dataset1@reductions[["RNA_UMAP"]]@cell.embeddings %>% as.data.frame() %>% rownames_to_column("barcode")
+  meta.data <- merge(meta.data, umapdf, by.x = "barcode", by.y = "barcode")
   writexl::write_xlsx(meta.data, file.path(path.to.02.output, sprintf("%s.metadata_with_cloneInfo.xlsx", dataset.name)))
   writexl::write_xlsx(clonedf, file.path(path.to.02.output, sprintf("%s.clonedf.xlsx", dataset.name)))
+  
 }
