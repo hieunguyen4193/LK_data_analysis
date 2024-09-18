@@ -4,7 +4,10 @@ rm(list = ls())
 scrna_pipeline_src <- "/media/hieunguyen/HNSD01/src/src_pipeline/scRNA_GEX_pipeline/processes_src"
 source(file.path(scrna_pipeline_src, "import_libraries.R"))
 source(file.path(scrna_pipeline_src, "helper_functions.R"))
-library(Trex)
+if ("Trex" %in% installed.packages()){
+  library(Trex)  
+}
+
 outdir <- "/media/hieunguyen/HNSD_mini/outdir/LK_data_analysis"
 
 path.to.main.output <- file.path(outdir, "general_outputs")
@@ -37,7 +40,7 @@ path.to.s.obj <- list(
                        "pct_mito_10_1", 
                        "data_analysis", 
                        "01_output",
-                       "230215_Kopplin_seurat_obj.remove_clsuter9.addVDJ.rds"),
+                       "230215_Kopplin_Pabst_added_NC_000001_merged_zcat_m330_m331_remove_c9.addVDJ.rds"),
   Dataset4 = file.path(outdir, 
                        "230316_Kopplin",
                        "1st_round",
@@ -70,21 +73,20 @@ all.vdj.files <- Sys.glob(file.path(path.to.storage, "*/*/*", "filtered_contig_a
 sample.names <- unlist(lapply(lapply(all.vdj.files, dirname), basename))
 names(all.vdj.files) <- sample.names
 
-dataset.name <- "Dataset1"
-all.contig.files <- all.vdj.files[sample.list[[dataset.name]]]
-
-contig_list <- lapply(all.contig.files, vroom, show_col_type = FALSE)
-names(contig_list) <- sample.list[[dataset.name]]
-combined.contigs <- combineTCR(contig_list,
-                               samples = sample.list[[dataset.name]],
-                               ID = sample.names,
-                               removeNA=FALSE, 
-                               removeMulti=FALSE)
-names(combined.contigs) <- sample.list[[dataset.name]]
-
-all.s.obj[[dataset.name]] <- combineExpression(combined.contigs, all.s.obj[[dataset.name]], cloneCall="aa")
-
-Trex_vectors <- maTrex(all.s.obj[[dataset.name]], 
-                       chains = "TRA",
-                       encoder.model = "VAE", 
-                       encoder.input = "AF")
+for (dataset.name in names(all.s.obj)){
+  all.s.obj[[dataset.name]]$CTaa <- NULL
+  all.contig.files <- all.vdj.files[sample.list[[dataset.name]]]
+  
+  contig_list <- lapply(all.contig.files, vroom, show_col_type = FALSE)
+  names(contig_list) <- sample.list[[dataset.name]]
+  combined.contigs <- combineTCR(contig_list,
+                                 samples = sample.list[[dataset.name]],
+                                 ID = sample.list[[dataset.name]],
+                                 removeNA=FALSE, 
+                                 removeMulti=FALSE, 
+                                 cells = "T-AB")
+  names(combined.contigs) <- sample.list[[dataset.name]]
+  
+  all.s.obj[[dataset.name]] <- combineExpression(combined.contigs, all.s.obj[[dataset.name]], cloneCall="aa")
+  saveRDS(all.s.obj[[dataset.name]], file.path(path.to.01.output, sprintf("%s.rds", dataset.name)))
+}

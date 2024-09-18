@@ -175,7 +175,6 @@ for (analysis.round in c("1st", "2nd")){
                       output_file = sprintf("downstream_analysis_%s_%s_%s.html", PROJECT, sample.id, analysis.round),
                       output_dir = path.to.save.html)
   }
-  # ______________________________________________
 }
 
 writeLines(capture.output(sessionInfo()), file.path(path.to.main.output, sprintf("%s_sessionInfo.txt", PROJECT)))

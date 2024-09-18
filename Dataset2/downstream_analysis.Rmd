@@ -31,11 +31,6 @@ params:
 
 set.seed(42)
 
-# analysis.round <- "1st"
-# PROJECT <- "1stExp_Kopplin"
-# outdir <- "/media/hieunguyen/HNSD_mini/outdir/LK_data_analysis"
-# sample.id <- "CD45exp1_m1"
-
 analysis.round <- params$analysis.round
 PROJECT <- params$PROJECT
 outdir <- params$outdir
@@ -327,7 +322,7 @@ ggsave(plot = subplot_all_top_20_clonaltypes, filename = file.path(save_plot_dir
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
 source(file.path(path.to.project.src, "clusters_to_be_removed.R"))
-if (length(remove.clusters[[sprintf("%s_%s", sample.id, analysis.round)]]) == 0){
+if (length(remove.clusters[[sample.id]]) == 0){
   remove.barcodes <- NULL 
 } else {
   remove.barcodes <- colnames(subset(s.obj, seurat_clusters %in% remove.clusters[[sample.id]] ))  
