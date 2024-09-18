@@ -69,49 +69,46 @@ names(all.vdj.files) <- sample.names
 
 ##### add VDJ information and modify seurat objects for all datasets
 for (dataset.name in names(all.s.obj)){
-  if (dataset.name != "Dataset1"){
-    if (file.exists(file.path(path.to.01.output, sprintf("%s.rds", dataset.name))) == FALSE){
-      if (dataset.name == "Dataset1"){
-        reduction.name <- "RNA_UMAP"
-      } else {
-        reduction.name <- "INTE_UMAP"
-      }
-      all.s.obj[[dataset.name]]$CTaa <- NULL
-      all.contig.files <- all.vdj.files[sample.list[[dataset.name]]]
-      
-      contig_list <- lapply(all.contig.files, vroom, show_col_type = FALSE)
-      names(contig_list) <- sample.list[[dataset.name]]
-      combined.contigs <- combineTCR(contig_list,
-                                     samples = sample.list[[dataset.name]],
-                                     ID = sample.list[[dataset.name]],
-                                     removeNA=FALSE, 
-                                     removeMulti=FALSE, 
-                                     cells = "T-AB")
-      names(combined.contigs) <- sample.list[[dataset.name]]
-      
-      all.s.obj[[dataset.name]] <- combineExpression(combined.contigs, all.s.obj[[dataset.name]], cloneCall="aa")
-      saveRDS(all.s.obj[[dataset.name]], file.path(path.to.01.output, sprintf("%s.rds", dataset.name)))
+  cluster.resolution <- 1
+  if (dataset.name == "Dataset1"){
+    ##### increase the cluster resolution of the first dataset. 
+    print(sprintf("CLUSTER RESOLUTIONS: %s", cluster.resolution))
+    chosen.assay <- "RNA"
+    chosen.seed <- 42
+    num.dim.integration <- 25 
+    num.PCA <- 25
+    num.dim.cluster <- 25
+    num.PC.used.in.Clustering <- 25
+    
+    s.obj <- all.s.obj[[dataset.name]]
+    s.obj <- FindNeighbors(s.obj, reduction = sprintf("%s_PCA", chosen.assay), dims = 1:num.PC.used.in.Clustering)
+    s.obj <- FindClusters(s.obj, resolution = cluster.resolution, random.seed = chosen.seed)
+    DimPlot(object = s.obj, reduction = "RNA_UMAP", label = TRUE, label.box = TRUE, repel = TRUE, pt.size = 0.5, label.size = 8) + 
+      xlim(-8, 7) + ylim(-4, 5)
+    saveRDS(object = s.obj, file = file.path(path.to.01.output, sprintf("%s.rds", dataset.name)))  
+    all.s.obj[[dataset.name]] <- s.obj
+  }
+  if (file.exists(file.path(path.to.01.output, sprintf("%s.rds", dataset.name))) == FALSE){
+    if (dataset.name == "Dataset1"){
+      reduction.name <- "RNA_UMAP"
+    } else {
+      reduction.name <- "INTE_UMAP"
     }
-  } else {
-    cluster.resolution <- 1
-    if (file.exists(file.path(path.to.01.output, sprintf("%s.rds", dataset.name))) == FALSE){
-      ##### increase the cluster resolution of the first dataset. 
-      print(sprintf("CLUSTER RESOLUTIONS: %s", cluster.resolution))
-      chosen.assay <- "RNA"
-      chosen.seed <- 42
-      num.dim.integration <- 25 
-      num.PCA <- 25
-      num.dim.cluster <- 25
-      num.PC.used.in.Clustering <- 25
-      
-      s.obj <- all.s.obj[[dataset.name]]
-      s.obj <- FindNeighbors(s.obj, reduction = sprintf("%s_PCA", chosen.assay), dims = 1:num.PC.used.in.Clustering)
-      s.obj <- FindClusters(s.obj, resolution = cluster.resolution, random.seed = chosen.seed)
-      DimPlot(object = s.obj, reduction = "RNA_UMAP", label = TRUE, label.box = TRUE, repel = TRUE, pt.size = 0.5, label.size = 8) + 
-        xlim(-8, 7) + ylim(-4, 5)
-      saveRDS(object = s.obj, file = file.path(path.to.01.output, sprintf("%s.rds", dataset.name)))  
-      all.s.obj[[dataset.name]] <- s.obj
-    }
+    all.s.obj[[dataset.name]]$CTaa <- NULL
+    all.contig.files <- all.vdj.files[sample.list[[dataset.name]]]
+    
+    contig_list <- lapply(all.contig.files, vroom, show_col_type = FALSE)
+    names(contig_list) <- sample.list[[dataset.name]]
+    combined.contigs <- combineTCR(contig_list,
+                                   samples = sample.list[[dataset.name]],
+                                   ID = sample.list[[dataset.name]],
+                                   removeNA=FALSE, 
+                                   removeMulti=FALSE, 
+                                   cells = "T-AB")
+    names(combined.contigs) <- sample.list[[dataset.name]]
+    
+    all.s.obj[[dataset.name]] <- combineExpression(combined.contigs, all.s.obj[[dataset.name]], cloneCall="aa")
+    saveRDS(all.s.obj[[dataset.name]], file.path(path.to.01.output, sprintf("%s.rds", dataset.name)))
   }
 }
 

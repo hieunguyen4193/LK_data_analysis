@@ -23,7 +23,7 @@ dataset.names <- list(
 all.s.obj <- list()
 for (dataset.name in names(dataset.names)){
   all.s.obj[[dataset.name]] <- readRDS(file.path(path.to.01.output, sprintf("%s.rds", dataset.name)))
-  meta.data <- all.s.obj[[dataset.name]]@meta.data %>% subset(select = -c(barcode)) %>% rownames_to_column("barcode")
+  meta.data <- all.s.obj[[dataset.name]]@meta.data %>% rownames_to_column("barcode")
   clonedf <- data.frame(table(meta.data$CTaa))%>% arrange(desc(Freq))
   colnames(clonedf) <- c("clone", "count")
   if (dataset.name == "Dataset1"){

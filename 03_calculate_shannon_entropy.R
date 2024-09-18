@@ -55,7 +55,7 @@ calculate_shannon_entropy <- function(cell.list, input.metadata, restricted_to_c
 }
 
 # To calculate Shannon entropy for a clone, we extract its list of barcodes (cell.list) and feed the function calculate_shannon_entropy_sampling_cells
-calculate_shannon_entropy_clone <- function(input.clone, input.metadata, restricted_to_clusters = NA){
+calculate_shannon_entropy_for_a_clone <- function(input.clone, input.metadata, restricted_to_clusters = NA){
   cell.list <- subset(input.metadata, input.metadata$CTaa == input.clone)$barcode
   shannon_entropy <- calculate_shannon_entropy(cell.list, input.metadata, restricted_to_clusters)
   return(shannon_entropy)
@@ -77,7 +77,7 @@ for (dataset.name in names(all.clonedf)){
     restricted_to_clusters <- c()
   }
   tmpdf <- tmpdf %>% rowwise() %>% 
-    mutate(Shannon.entropy = calculate_shannon_entropy_clone(input.clone = clone, 
+    mutate(Shannon.entropy = calculate_shannon_entropy_for_a_clone(input.clone = clone, 
                                                              input.metadata = all.metadata[[dataset.name]],
                                                              restricted_to_clusters = restricted_to_clusters))      
   entropydf[[dataset.name]] <- tmpdf
