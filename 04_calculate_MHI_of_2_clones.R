@@ -85,11 +85,16 @@ func03_pipeline_01_02 <- function(umap, clone1, clone2, sample1, sample2){
 }
 
 ##### Example: Calculate the MHI index for "distribution among clusters" clones
-##### CAAENTGNYKYVF_CASSLWGGDAETLYF in sample m368 and m369 in Dataset4.
-func03_pipeline_01_02(umap = all.metadata[["Dataset4"]],
-                      sample1 = "m368",
-                      sample2 = "m369",
-                      clone1 = "CAAENTGNYKYVF_CASSLWGGDAETLYF",
-                      clone2 = "CAAENTGNYKYVF_CASSLWGGDAETLYF"
-                      )
-
+##### CAAENTGNYKYVF_CASSLWGGDAETLYF in sample m368 and m369 in Dataset 4.
+dataset.name <- "Dataset4"
+sample1 <- "m368"
+sample2 <- "m369"
+clone1 <- "CAAENTGNYKYVF_CASSLWGGDAETLYF"
+clone2 <- "CAAENTGNYKYVF_CASSLWGGDAETLYF"
+MHI <- func03_pipeline_01_02(umap = all.metadata[[dataset.name]],
+                      sample1 = sample1,
+                      sample2 = sample2,
+                      clone1 = clone1,
+                      clone2 = clone2)
+print(sprintf("MHI of clone %s, clone %s in sample %s and sample %s in dataset %s: %s",
+              clone1, clone2, sample1, sample2, dataset.name, MHI))
