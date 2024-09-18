@@ -11,7 +11,9 @@ dir.create(path.to.main.output, showWarnings = FALSE, recursive = TRUE)
 
 path.to.01.output <- file.path(path.to.main.output, "01_output")
 path.to.02.output <- file.path(path.to.main.output, "02_output") 
-dir.create(path.to.02.output, showWarnings = FALSE, recursive = TRUE)
+path.to.03.output <- file.path(path.to.main.output, "03_output")
+
+dir.create(path.to.03.output, showWarnings = FALSE, recursive = TRUE)
 
 dataset.names <- list(
   Dataset1 = "1stExp_Kopplin",
@@ -23,15 +25,23 @@ dataset.names <- list(
 all.clonedf <- hash()
 all.metadata <- hash()
 for (dataset.name in names(dataset.names)){
-  all.metadata[[dataset.name]] <- readxl::read_excel(file.path(path.to.02.output, sprintf("%s.metadata_with_cloneInfo.xlsx", dataset.name)))
-  all.clonedf[[dataset.name]] <- readxl::read_excel(file.path(path.to.02.output, sprintf("%s.clonedf.xlsx", dataset.name)))
+  if (dataset.name == "Dataset1"){
+    all.metadata[["Dataset1_CD45"]] <- readxl::read_excel(file.path(path.to.02.output, sprintf("%s_CD45.metadata_with_cloneInfo.xlsx", dataset.name)))
+    all.clonedf[["Dataset1_CD45"]] <- readxl::read_excel(file.path(path.to.02.output, sprintf("%s_CD45.clonedf.xlsx", dataset.name)))
+    
+    all.metadata[["Dataset1_GFP"]] <- readxl::read_excel(file.path(path.to.02.output, sprintf("%s_GFP.metadata_with_cloneInfo.xlsx", dataset.name)))
+    all.clonedf[["Dataset1_GFP"]] <- readxl::read_excel(file.path(path.to.02.output, sprintf("%s_GFP.clonedf.xlsx", dataset.name)))
+  } else {
+    all.metadata[[dataset.name]] <- readxl::read_excel(file.path(path.to.02.output, sprintf("%s.metadata_with_cloneInfo.xlsx", dataset.name)))
+    all.clonedf[[dataset.name]] <- readxl::read_excel(file.path(path.to.02.output, sprintf("%s.clonedf.xlsx", dataset.name)))    
+  }
 }
 
 #####---------------------------------------------------------------------------------------------#####
 ##### helper functions: Calculate Shannon entropy to measure "diversity" of cells/clones over clusters
 #####---------------------------------------------------------------------------------------------#####
 calculate_shannon_entropy <- function(cell.list, input.metadata, restricted_to_clusters = NA){
-  if (is.na(restricted_to_clusters) == FALSE){
+  if (length(restricted_to_clusters) == 0){
     input.metadata <- subset(input.metadata, input.metadata$seurat_clusters %in% restricted_to_clusters)
   } 
   ##### by default, we assume that the column "seurat_clusters" contains the active cluster numbers.
@@ -54,20 +64,23 @@ calculate_shannon_entropy_clone <- function(input.clone, input.metadata, restric
 #####---------------------------------------------------------------------------------------------#####
 ##### Calculate Shannon Entropy for all clones in each dataset
 #####---------------------------------------------------------------------------------------------#####
-for (dataset.name in nanes(all.clonedf)){
+entropydf <- list()
+for (dataset.name in names(all.clonedf)){
   ##### for dataset1, since there are two different compartments of cells in the data, 
   ##### we calculate Shannon entropy for each compartment separately. 
-  if (dataset.name == "Dataset1"){
-    
+  tmpdf <- all.clonedf[[dataset.name]]
+  if (dataset.name == "Dataset1_GFP"){
+    restricted_to_clusters <- c(3, 5, 6, 8)
+  } else if (dataset.name == "Dataset1_CD45"){
+    restricted_to_clusters <- c(0, 1, 2, 4, 9, 10, 11)
   } else {
-    tmpdf <- all.clonedf[[dataset.name]]
-    tmpdf <- tmpdf %>% rowwise() %>% 
-      mutate(Shannon.entropy = calculate_shannon_entropy_clone(input.clone = clone, 
-                                                               input.metadata = all.metadata[[dataset.name]],
-                                                               restricted_to_clusters = NA))      
+    restricted_to_clusters <- c()
   }
-
+  tmpdf <- tmpdf %>% rowwise() %>% 
+    mutate(Shannon.entropy = calculate_shannon_entropy_clone(input.clone = clone, 
+                                                             input.metadata = all.metadata[[dataset.name]],
+                                                             restricted_to_clusters = restricted_to_clusters))      
+  entropydf[[dataset.name]] <- tmpdf
+  writexl::write_xlsx(tmpdf, file.path(path.to.03.output, sprintf("%s.Shannon_entropy.xlsx", dataset.name)))
 }
 
-
-#> example: clone = "CAMNTGYQNFYF_CTCSVQDTQYF"

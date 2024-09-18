@@ -23,27 +23,34 @@ dataset.names <- list(
 all.s.obj <- list()
 for (dataset.name in names(dataset.names)){
   all.s.obj[[dataset.name]] <- readRDS(file.path(path.to.01.output, sprintf("%s.rds", dataset.name)))
-  if (dataset.name == "1stExp_Kopplin") {
-    if (file.exists(file.path(path.to.01.output, sprintf("1stExp_Kopplin.cluster_res_%s.rds", cluster.resolution))) == FALSE){
-      ##### increase the cluster resolution of the first dataset. 
-      cluster.resolution <- 1
-      
-      print(sprintf("CLUSTER RESOLUTIONS: %s", cluster.resolution))
-      chosen.assay <- "RNA"
-      s.obj <- FindNeighbors(s.obj, reduction = sprintf("%s_PCA", chosen.assay), dims = 1:num.PC.used.in.Clustering)
-      s.obj <- FindClusters(s.obj, resolution = cluster.resolution, random.seed = chosen.seed)
-      DimPlot(object = s.obj, reduction = "RNA_UMAP", label = TRUE, label.box = TRUE, repel = TRUE, pt.size = 0.5, label.size = 8) + 
-        xlim(-8, 7) + ylim(-4, 5)
-      saveRDS(object = s.obj, file = file.path(path.to.01.output, sprintf("1stExp_Kopplin.cluster_res_%s.rds", cluster.resolution)))  
-    } else {
-      all.s.obj[[dataset.name]] <- readRDS(file.path(path.to.01.output, sprintf("1stExp_Kopplin.cluster_res_%s.rds", cluster.resolution)))
-    }
-  }
   meta.data <- all.s.obj[[dataset.name]]@meta.data %>% subset(select = -c(barcode)) %>% rownames_to_column("barcode")
   clonedf <- data.frame(table(meta.data$CTaa))%>% arrange(desc(Freq))
-  umapdf <- all.s.obj$Dataset1@reductions[["RNA_UMAP"]]@cell.embeddings %>% as.data.frame() %>% rownames_to_column("barcode")
+  colnames(clonedf) <- c("clone", "count")
+  if (dataset.name == "Dataset1"){
+    reduction.name <- "RNA_UMAP"
+  } else {
+    reduction.name <- "INTE_UMAP"
+  }
+  umapdf <- all.s.obj[[dataset.name]]@reductions[[reduction.name]]@cell.embeddings %>% as.data.frame() %>% rownames_to_column("barcode")
   meta.data <- merge(meta.data, umapdf, by.x = "barcode", by.y = "barcode")
-  writexl::write_xlsx(meta.data, file.path(path.to.02.output, sprintf("%s.metadata_with_cloneInfo.xlsx", dataset.name)))
-  writexl::write_xlsx(clonedf, file.path(path.to.02.output, sprintf("%s.clonedf.xlsx", dataset.name)))
-  
+  if (dataset.name == "Dataset1"){
+    meta.data.GFP <- subset(meta.data, meta.data$seurat_clusters %in% c(3, 5, 6, 8))
+    meta.data.CD45 <- subset(meta.data, meta.data$seurat_clusters %in% c(3, 5, 6, 8) == FALSE)
+    
+    clonedf.GFP  <- data.frame(table(meta.data.GFP$CTaa))%>% arrange(desc(Freq))
+    colnames(clonedf.GFP) <- c("clone", "count")
+    
+    clonedf.CD45  <- data.frame(table(meta.data.CD45$CTaa))%>% arrange(desc(Freq))
+    colnames(clonedf.CD45) <- c("clone", "count")
+    
+    writexl::write_xlsx(meta.data.GFP, file.path(path.to.02.output, sprintf("%s_GFP.metadata_with_cloneInfo.xlsx", dataset.name)))
+    writexl::write_xlsx(clonedf.GFP, file.path(path.to.02.output, sprintf("%s_GFP.clonedf.xlsx", dataset.name)))  
+
+    writexl::write_xlsx(meta.data.CD45, file.path(path.to.02.output, sprintf("%s_CD45.metadata_with_cloneInfo.xlsx", dataset.name)))
+    writexl::write_xlsx(clonedf.CD45, file.path(path.to.02.output, sprintf("%s_CD45.clonedf.xlsx", dataset.name)))  
+    
+  } else {
+    writexl::write_xlsx(meta.data, file.path(path.to.02.output, sprintf("%s.metadata_with_cloneInfo.xlsx", dataset.name)))
+    writexl::write_xlsx(clonedf, file.path(path.to.02.output, sprintf("%s.clonedf.xlsx", dataset.name)))  
+  }
 }
