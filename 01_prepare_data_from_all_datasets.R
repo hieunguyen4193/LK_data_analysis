@@ -85,7 +85,6 @@ for (dataset.name in names(all.s.obj)){
     s.obj <- FindClusters(s.obj, resolution = cluster.resolution, random.seed = chosen.seed)
     DimPlot(object = s.obj, reduction = "RNA_UMAP", label = TRUE, label.box = TRUE, repel = TRUE, pt.size = 0.5, label.size = 8) + 
       xlim(-8, 7) + ylim(-4, 5)
-    saveRDS(object = s.obj, file = file.path(path.to.01.output, sprintf("%s.rds", dataset.name)))  
     all.s.obj[[dataset.name]] <- s.obj
   }
   if (file.exists(file.path(path.to.01.output, sprintf("%s.rds", dataset.name))) == FALSE){

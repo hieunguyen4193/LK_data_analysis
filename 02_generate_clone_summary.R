@@ -23,9 +23,17 @@ dataset.names <- list(
 all.s.obj <- list()
 for (dataset.name in names(dataset.names)){
   all.s.obj[[dataset.name]] <- readRDS(file.path(path.to.01.output, sprintf("%s.rds", dataset.name)))
-  meta.data <- all.s.obj[[dataset.name]]@meta.data %>% rownames_to_column("barcode")
+  meta.data <- all.s.obj[[dataset.name]]@meta.data %>% subset(select = -c(barcode)) %>% rownames_to_column("barcode")
   clonedf <- data.frame(table(meta.data$CTaa))%>% arrange(desc(Freq))
   colnames(clonedf) <- c("clone", "count")
+  
+  for (sample.id in unique(meta.data$name)){
+    clonedf[[sample.id]] <- unlist(lapply(
+      clonedf$clone, function(x){
+        nrow(subset(meta.data, meta.data$name == sample.id & meta.data$CTaa == x))
+      }))
+  }
+  
   if (dataset.name == "Dataset1"){
     reduction.name <- "RNA_UMAP"
   } else {
@@ -39,9 +47,21 @@ for (dataset.name in names(dataset.names)){
     
     clonedf.GFP  <- data.frame(table(meta.data.GFP$CTaa))%>% arrange(desc(Freq))
     colnames(clonedf.GFP) <- c("clone", "count")
+    for (sample.id in unique(meta.data.GFP$name)){
+      clonedf.GFP[[sample.id]] <- unlist(lapply(
+        clonedf.GFP$clone, function(x){
+          nrow(subset(meta.data.GFP, meta.data.GFP$name == sample.id & meta.data.GFP$CTaa == x))
+        }))
+    }
     
     clonedf.CD45  <- data.frame(table(meta.data.CD45$CTaa))%>% arrange(desc(Freq))
     colnames(clonedf.CD45) <- c("clone", "count")
+    for (sample.id in unique(meta.data.CD45$name)){
+      clonedf.CD45[[sample.id]] <- unlist(lapply(
+        clonedf.CD45$clone, function(x){
+          nrow(subset(meta.data.CD45, meta.data.CD45$name == sample.id & meta.data.CD45$CTaa == x))
+        }))
+    }
     
     writexl::write_xlsx(meta.data.GFP, file.path(path.to.02.output, sprintf("%s_GFP.metadata_with_cloneInfo.xlsx", dataset.name)))
     writexl::write_xlsx(clonedf.GFP, file.path(path.to.02.output, sprintf("%s_GFP.clonedf.xlsx", dataset.name)))  
