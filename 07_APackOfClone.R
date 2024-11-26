@@ -19,8 +19,9 @@ path.to.02.output <- file.path(path.to.main.output, "02_output")
 path.to.03.output <- file.path(path.to.main.output, "03_output")
 path.to.05.output <- file.path(path.to.main.output, "05_output")
 path.to.06.output <- file.path(path.to.main.output, "06_output")
+path.to.07.output <- file.path(path.to.main.output, "07_output")
 
-dir.create(path.to.05.output, showWarnings = FALSE, recursive = TRUE)
+dir.create(path.to.07.output, showWarnings = FALSE, recursive = TRUE)
 
 dataset.names <- list(
   Dataset1 = "1stExp_Kopplin",
@@ -66,15 +67,44 @@ module.gene.list <- list(
   Proliferating = c("Mki67", "Stmn1", "Top2a", "Birc5")
 )
 
-dataset.name <- "Dataset2"
-if (dataset.name == "Dataset1"){
-  reduction.name <- "RNA_UMAP"
-} else {
-  reduction.name <- "INTE_UMAP"
+# dataset.name <- "Dataset2"
+for (dataset.name in names(all.s.obj)){
+  print("----------------------------------------------------------")
+  print(sprintf("working on dataset %s", dataset.name))
+  print("----------------------------------------------------------")
+  dir.create(file.path(path.to.07.output, dataset.name, "clone_APOTC"), showWarnings = FALSE, recursive = TRUE)
+  
+  if (dataset.name == "Dataset1"){
+    reduction.name <- "RNA_UMAP"
+  } else {
+    reduction.name <- "INTE_UMAP"
+  }
+  dir.create(file.path(path.to.06.output, dataset.name), showWarnings = FALSE, recursive = TRUE)
+  
+  s.obj <- all.s.obj[[dataset.name]]
+  
+  ##### install APackOfTheClone package
+  install.packages("APackOfTheClones")
+  library(APackOfTheClones)
+  s.obj <- RunAPOTC(seurat_obj = s.obj, reduction_base = "INTE_UMAP", clonecall = "CTaa")
+  meta.data <- s.obj@meta.data %>% 
+    rownames_to_column("cell.barcode")
+  clonedf <- data.frame(meta.data$CTaa %>% table())
+  colnames(clonedf) <- c("clone", "count")
+  clonedf <- clonedf %>% arrange(desc(count))
+  
+  for (cloneid in unique(subset(clonedf, clonedf$count >= 10)$clone)){
+    print(sprintf("working on %s", cloneid))
+    apotc.clone.plot <- vizAPOTC(s.obj, clonecall = "CTaa", verbose = FALSE, reduction_base = "INTE_UMAP", repulse = TRUE, show_labels = TRUE) %>%
+      showCloneHighlight(cloneid, fill_legend = TRUE, )  
+    ggsave(plot = apotc.clone.plot,
+           filename = sprintf("%s.svg", cloneid),
+           path = file.path(path.to.07.output, dataset.name, "clone_APOTC"),
+           device = "svg",
+           width = 15, 
+           height = 10,
+           dpi = 300)
+  }
 }
-dir.create(file.path(path.to.06.output, dataset.name), showWarnings = FALSE, recursive = TRUE)
 
-s.obj <- all.s.obj[[dataset.name]]
-
-##### install APackOfTheClone package
-install.packages("APackOfTheClones")
+# umap.plot <- DimPlot(object = s.obj, reduction = "INTE_UMAP", label = TRUE, label.box = TRUE, repel = TRUE)
