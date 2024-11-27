@@ -1,12 +1,15 @@
 gc()
 rm(list = ls())
 
-new.pkgs <- c("APackOfTheClones", "svglite")
+new.pkgs <- c("APackOfTheClones", "svglite", 'ggthemes', "ggpubr")
 for (pkg in new.pkgs){
   if (pkg %in% installed.packages() == FALSE){
     install.packages(pkg)
   }
 }
+library(ggpubr)
+library(ggthemes)
+library(APackOfTheClones)
 scrna_pipeline_src <- "/media/hieunguyen/HNSD01/src/src_pipeline/scRNA_GEX_pipeline/processes_src"
 source(file.path(scrna_pipeline_src, "import_libraries.R"))
 source(file.path(scrna_pipeline_src, "helper_functions.R"))
@@ -26,6 +29,7 @@ path.to.03.output <- file.path(path.to.main.output, "03_output")
 path.to.05.output <- file.path(path.to.main.output, "05_output")
 path.to.06.output <- file.path(path.to.main.output, "06_output")
 path.to.07.output <- file.path(path.to.main.output, "07_output")
+path.to.08.output <- file.path(path.to.main.output, "08_output")
 
 dir.create(path.to.07.output, showWarnings = FALSE, recursive = TRUE)
 
@@ -64,7 +68,7 @@ for (dataset.name in names(dataset.names)){
   } else {
     all.s.obj[[dataset.name]] <- readRDS(file.path(path.to.01.output, sprintf("%s.rds", dataset.name)))    
   }
-
+  
 }
 
 module.gene.list <- list(
@@ -79,54 +83,57 @@ module.gene.list <- list(
   Proliferating = c("Mki67", "Stmn1", "Top2a", "Birc5")
 )
 
-# dataset.name <- "Dataset2"
-for (dataset.name in names(all.s.obj)){
-  print("----------------------------------------------------------")
-  print(sprintf("working on dataset %s", dataset.name))
-  print("----------------------------------------------------------")
-  dir.create(file.path(path.to.07.output, dataset.name, "clone_APOTC"), showWarnings = FALSE, recursive = TRUE)
-  
-  if (dataset.name == "Dataset1"){
-    reduction.name <- "RNA_UMAP"
-  } else {
-    reduction.name <- "INTE_UMAP"
-  }
-  
-  s.obj <- all.s.obj[[dataset.name]]
-  DefaultAssay(s.obj) <- "RNA"
-  Idents(s.obj) <- "seurat_clusters"
-  library(APackOfTheClones)
-  s.obj <- RunAPOTC(seurat_obj = s.obj, reduction_base = reduction.name, clonecall = "CTaa")
-  meta.data <- s.obj@meta.data %>% 
-    rownames_to_column("cell.barcode")
-  clonedf <- data.frame(meta.data$CTaa %>% table())
-  colnames(clonedf) <- c("clone", "count")
-  clonedf <- clonedf %>% arrange(desc(count))
-  
-  for (cloneid in unique(subset(clonedf, clonedf$count >= 10)$clone)){
-    if (file.exists(file.path(path.to.07.output, dataset.name, "clone_APOTC", sprintf("%s.svg", cloneid))) == FALSE){
-      print(sprintf("working on %s", cloneid))
-      apotc.clone.plot <- vizAPOTC(s.obj, clonecall = "CTaa", 
-                                   verbose = FALSE, 
-                                   reduction_base = reduction.name, 
-                                   show_labels = TRUE, 
-                                   legend_position = "top_right", 
-                                   legend_sizes = 2) %>%
-        showCloneHighlight(cloneid, fill_legend = TRUE) 
-      ggsave(plot = apotc.clone.plot,
-             filename = sprintf("%s.svg", cloneid),
-             path = file.path(path.to.07.output, dataset.name, "clone_APOTC"),
-             device = "svg",
-             width = 15, 
-             height = 10,
-             dpi = 300)
-    } else {
-      print(sprintf("File %s exists", file.path(path.to.07.output, dataset.name, "clone_APOTC", sprintf("%s.svg", cloneid))))
-    }
-  }
+dataset.name <- "Dataset1"
+print("----------------------------------------------------------")
+print(sprintf("working on dataset %s", dataset.name))
+print("----------------------------------------------------------")
+dir.create(file.path(path.to.07.output, dataset.name, "clone_APOTC"), showWarnings = FALSE, recursive = TRUE)
+
+if (dataset.name == "Dataset1"){
+  reduction.name <- "RNA_UMAP"
+} else {
+  reduction.name <- "INTE_UMAP"
 }
 
-# umap.plot <- DimPlot(object = s.obj, reduction = "INTE_UMAP", label = TRUE, label.box = TRUE, repel = TRUE)
+s.obj <- all.s.obj[[dataset.name]]
+Idents(s.obj) <- "seurat_clusters"
+
+s.obj <- RunAPOTC(seurat_obj = s.obj, reduction_base = reduction.name, clonecall = "CTaa")
+meta.data <- s.obj@meta.data %>% 
+  rownames_to_column("cell.barcode")
+clonedf <- data.frame(meta.data$CTaa %>% table())
+colnames(clonedf) <- c("clone", "count")
+clonedf <- clonedf %>% arrange(desc(count))
+for (sampleid in unique(s.obj$name)){
+  clonedf[[sampleid]] <- unlist(lapply(clonedf$clone, function(x){
+    nrow(subset(meta.data, meta.data$name == sampleid & meta.data$CTaa == x))
+  }))
+}
+
+plot.sampleid <- "CD45exp1_m1"
+tmp.clonedf <- clonedf[, c("clone", plot.sampleid)]
+colnames(tmp.clonedf) <- c("clone", "count")
+tmp.clonedf <- subset(tmp.clonedf, tmp.clonedf$count != 0)
+
+top20.clones <- head(tmp.clonedf, 20) %>% pull(clone)
+split.top5.clones <- split(top20.clones, seq(1,4))
+
+colors <- tableau_color_pal(palette = "Tableau 20")(20)
+split.colors <- split(colors, seq(1,4))
+
+apotc.clone.plot <- list()
+for (i in seq(1,4)){
+  apotc.clone.plot[[i]] <- vizAPOTC(s.obj, clonecall = "CTaa", 
+                                    verbose = FALSE, 
+                                    reduction_base = reduction.name, 
+                                    show_labels = TRUE, 
+                                    legend_position = "top_right", 
+                                    legend_sizes = 2) %>%
+    showCloneHighlight(as.character(split.top5.clones[[i]]), fill_legend = TRUE, 
+                       color_each = split.colors[[i]]) 
+}
+
+ggarrange()
 
 # to-do 
 # merge cluster 2 and 7 in dataset 1 in the origin data --> new UMAP, new APOTC. 
