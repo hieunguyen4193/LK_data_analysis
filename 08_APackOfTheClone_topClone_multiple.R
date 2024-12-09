@@ -1,12 +1,14 @@
 gc()
 rm(list = ls())
-
-new.pkgs <- c("APackOfTheClones", "svglite", 'ggthemes', "ggpubr")
+install.packages("https://cran.r-project.org/src/contrib/Archive/Matrix/Matrix_1.5-4.1.tar.gz", type = "source", repos = NULL)
+new.pkgs <- c("APackOfTheClones", "svglite", 'ggthemes', "quantreg", "car", "ggpubr")
 for (pkg in new.pkgs){
   if (pkg %in% installed.packages() == FALSE){
     install.packages(pkg)
   }
 }
+
+save.dev <- "png"
 library(ggpubr)
 library(ggthemes)
 library(APackOfTheClones)
@@ -31,7 +33,7 @@ path.to.06.output <- file.path(path.to.main.output, "06_output")
 path.to.07.output <- file.path(path.to.main.output, "07_output")
 path.to.08.output <- file.path(path.to.main.output, "08_output")
 
-dir.create(path.to.07.output, showWarnings = FALSE, recursive = TRUE)
+dir.create(path.to.08.output, showWarnings = FALSE, recursive = TRUE)
 
 dataset.names <- list(
   Dataset1 = "1stExp_Kopplin",
@@ -83,57 +85,76 @@ module.gene.list <- list(
   Proliferating = c("Mki67", "Stmn1", "Top2a", "Birc5")
 )
 
-dataset.name <- "Dataset1"
-print("----------------------------------------------------------")
-print(sprintf("working on dataset %s", dataset.name))
-print("----------------------------------------------------------")
-dir.create(file.path(path.to.07.output, dataset.name, "clone_APOTC"), showWarnings = FALSE, recursive = TRUE)
-
-if (dataset.name == "Dataset1"){
-  reduction.name <- "RNA_UMAP"
-} else {
-  reduction.name <- "INTE_UMAP"
+# dataset.name <- "Dataset1"
+for (dataset.name in names(all.s.obj)){
+  
+  print("----------------------------------------------------------")
+  print(sprintf("working on dataset %s", dataset.name))
+  print("----------------------------------------------------------")
+  
+  if (dataset.name == "Dataset1"){
+    reduction.name <- "RNA_UMAP"
+  } else {
+    reduction.name <- "INTE_UMAP"
+  }
+  
+  s.obj <- all.s.obj[[dataset.name]]
+  Idents(s.obj) <- "seurat_clusters"
+  
+  s.obj <- RunAPOTC(seurat_obj = s.obj, reduction_base = reduction.name, clonecall = "CTaa")
+  meta.data <- s.obj@meta.data %>% 
+    rownames_to_column("cell.barcode")
+  clonedf <- data.frame(meta.data$CTaa %>% table())
+  colnames(clonedf) <- c("clone", "count")
+  clonedf <- clonedf %>% arrange(desc(count))
+  for (sampleid in unique(s.obj$name)){
+    clonedf[[sampleid]] <- unlist(lapply(clonedf$clone, function(x){
+      nrow(subset(meta.data, meta.data$name == sampleid & meta.data$CTaa == x))
+    }))
+  }
+  
+  plot.top <- 20
+  for (plot.sampleid in unique(s.obj$name)){
+    dir.create(file.path(path.to.08.output, 
+                         dataset.name, 
+                         "topClones_in_each_sample", 
+                         plot.sampleid), showWarnings = FALSE, recursive = TRUE)
+    
+    tmp.clonedf <- clonedf[, c("clone", plot.sampleid)]
+    colnames(tmp.clonedf) <- c("clone", "count")
+    tmp.clonedf <- subset(tmp.clonedf, tmp.clonedf$count != 0)
+    
+    top20.clones <- head(tmp.clonedf, plot.top) %>% pull(clone)
+    split.top5.clones <- split(top20.clones, seq(1,4))
+    
+    colors <- tableau_color_pal(palette = "Tableau 20")(20)
+    split.colors <- split(colors, seq(1,4))
+    
+    apotc.clone.plot <- list()
+    for (i in seq(1,4)){
+      tmp.plot <- vizAPOTC(s.obj, clonecall = "CTaa", 
+                           verbose = FALSE, 
+                           reduction_base = reduction.name, 
+                           show_labels = TRUE, 
+                           legend_position = "top_right", 
+                           legend_sizes = 2) %>% 
+        showCloneHighlight(clonotype =  as.character(split.top5.clones[[i]]), 
+                           fill_legend = TRUE,
+                           color_each = split.colors[[i]], 
+                           default_color = "#808080") 
+      apotc.clone.plot[[i]] <- tmp.plot
+    }
+    library("gridExtra")
+    merge.plot <- arrangeGrob(ggarrange(apotc.clone.plot[[1]], apotc.clone.plot[[2]],
+                                        apotc.clone.plot[[3]], apotc.clone.plot[[4]], 
+                                        ncol = 2, nrow = 2 ))
+    
+    ggsave(plot = merge.plot, filename = sprintf("%s_top%sClones.%s", plot.sampleid, plot.top, save.dev),
+           path = file.path(path.to.08.output, dataset.name, "topClones_in_each_sample", plot.sampleid),
+           device = save.dev, width = 20, height = 14
+    )
+  }
 }
-
-s.obj <- all.s.obj[[dataset.name]]
-Idents(s.obj) <- "seurat_clusters"
-
-s.obj <- RunAPOTC(seurat_obj = s.obj, reduction_base = reduction.name, clonecall = "CTaa")
-meta.data <- s.obj@meta.data %>% 
-  rownames_to_column("cell.barcode")
-clonedf <- data.frame(meta.data$CTaa %>% table())
-colnames(clonedf) <- c("clone", "count")
-clonedf <- clonedf %>% arrange(desc(count))
-for (sampleid in unique(s.obj$name)){
-  clonedf[[sampleid]] <- unlist(lapply(clonedf$clone, function(x){
-    nrow(subset(meta.data, meta.data$name == sampleid & meta.data$CTaa == x))
-  }))
-}
-
-plot.sampleid <- "CD45exp1_m1"
-tmp.clonedf <- clonedf[, c("clone", plot.sampleid)]
-colnames(tmp.clonedf) <- c("clone", "count")
-tmp.clonedf <- subset(tmp.clonedf, tmp.clonedf$count != 0)
-
-top20.clones <- head(tmp.clonedf, 20) %>% pull(clone)
-split.top5.clones <- split(top20.clones, seq(1,4))
-
-colors <- tableau_color_pal(palette = "Tableau 20")(20)
-split.colors <- split(colors, seq(1,4))
-
-apotc.clone.plot <- list()
-for (i in seq(1,4)){
-  apotc.clone.plot[[i]] <- vizAPOTC(s.obj, clonecall = "CTaa", 
-                                    verbose = FALSE, 
-                                    reduction_base = reduction.name, 
-                                    show_labels = TRUE, 
-                                    legend_position = "top_right", 
-                                    legend_sizes = 2) %>%
-    showCloneHighlight(as.character(split.top5.clones[[i]]), fill_legend = TRUE, 
-                       color_each = split.colors[[i]]) 
-}
-
-ggarrange()
 
 # to-do 
 # merge cluster 2 and 7 in dataset 1 in the origin data --> new UMAP, new APOTC. 

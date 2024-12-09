@@ -1,5 +1,5 @@
 gc()
-rm(ls())
+rm(list = ls())
 
 ##### input args
 s.obj <- "/path/to/seurat.rds"
